@@ -23,3 +23,11 @@ default = ["std"]
 std = []
 serde = ["serde/alloc"]
 bytes = []
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+
+[[bench]]
+name = "cheetah"
+harness = false
