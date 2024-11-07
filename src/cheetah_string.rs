@@ -27,9 +27,9 @@ impl From<Arc<String>> for CheetahString {
     }
 }
 
-impl From<&'static str> for CheetahString {
-    fn from(s: &'static str) -> Self {
-        CheetahString::from_static_str(s)
+impl<'a> From<&'a str> for CheetahString {
+    fn from(s: &'a str) -> Self {
+        CheetahString::from_slice(s)
     }
 }
 
