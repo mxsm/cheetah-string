@@ -1,6 +1,10 @@
 use std::cmp::Ordering;
+use std::fmt::Display;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::sync::Arc;
+
+const EMPTY_STRING: &str = "";
 
 #[derive(Clone)]
 #[repr(transparent)]
@@ -90,6 +94,13 @@ impl AsRef<[u8]> for CheetahString {
 
 impl CheetahString {
     #[inline]
+    pub fn empty() -> Self {
+        CheetahString {
+            inner: InnerString::Empty,
+        }
+    }
+
+    #[inline]
     pub fn new() -> Self {
         CheetahString::default()
     }
@@ -136,7 +147,7 @@ impl CheetahString {
             InnerString::StaticStr(s) => s,
             #[cfg(feature = "bytes")]
             InnerString::Bytes(b) => std::str::from_utf8(b.as_ref()).unwrap(),
-            InnerString::Empty => "",
+            InnerString::Empty => EMPTY_STRING,
         }
     }
 
@@ -162,6 +173,7 @@ impl CheetahString {
         }
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         match &self.inner {
             InnerString::ArcString(s) => s.is_empty(),
@@ -179,6 +191,42 @@ impl PartialEq for CheetahString {
     }
 }
 
+impl PartialEq<str> for CheetahString {
+    fn eq(&self, other: &str) -> bool {
+        self.as_str() == other
+    }
+}
+
+impl PartialEq<String> for CheetahString {
+    fn eq(&self, other: &String) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl<'a> PartialEq<&'a str> for CheetahString {
+    fn eq(&self, other: &&'a str) -> bool {
+        self.as_str() == *other
+    }
+}
+
+impl PartialEq<CheetahString> for str {
+    fn eq(&self, other: &CheetahString) -> bool {
+        self == other.as_str()
+    }
+}
+
+impl PartialEq<CheetahString> for String {
+    fn eq(&self, other: &CheetahString) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<CheetahString> for &str {
+    fn eq(&self, other: &CheetahString) -> bool {
+        *self == other.as_str()
+    }
+}
+
 impl Eq for CheetahString {}
 
 impl PartialOrd for CheetahString {
@@ -190,6 +238,18 @@ impl PartialOrd for CheetahString {
 impl Ord for CheetahString {
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())
+    }
+}
+
+impl Hash for CheetahString {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_str().hash(state);
+    }
+}
+
+impl Display for CheetahString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.as_str().fmt(f)
     }
 }
 
