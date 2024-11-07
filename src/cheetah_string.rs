@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -169,6 +170,26 @@ impl CheetahString {
             InnerString::Bytes(b) => b.is_empty(),
             InnerString::Empty => true,
         }
+    }
+}
+
+impl PartialEq for CheetahString {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_str() == other.as_str()
+    }
+}
+
+impl Eq for CheetahString {}
+
+impl PartialOrd for CheetahString {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for CheetahString {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_str().cmp(other.as_str())
     }
 }
 
