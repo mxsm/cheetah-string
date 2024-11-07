@@ -172,6 +172,14 @@ impl CheetahString {
     }
 }
 
+/// The `InnerString` enum represents different types of string storage.
+///
+/// Variants:
+///
+/// * `ArcString(Arc<String>)` - A reference-counted string.
+/// * `StaticStr(&'static str)` - A static string slice.
+/// * `Bytes(bytes::Bytes)` - A byte buffer (available when the "bytes" feature is enabled).
+/// * `Empty` - An empty string.
 #[derive(Clone)]
 pub(super) enum InnerString {
     ArcString(Arc<String>),
