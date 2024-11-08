@@ -11,7 +11,37 @@ Cheetah String is designed to provide fast and efficient string operations with 
 - **Easy to integrate**: Simple, intuitive design to minimize the learning curve.
 - **Cross-platform**: Compatible with major operating systems and development environments.
 
+## How to use
+
+To use **`Cheetah-String`**, first add this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+cheetah-string = "0.1.0"
+```
+
+### Bytes support
+
+**Bytes** support is optional and disabled by default. To enable use the feature `bytes`.
+
+```toml
+[dependencies]
+cheetah-string = { version = "1", features = ["bytes"] }
+```
+
+### Serde support
+
+**serde** support is optional and disabled by default. To enable use the feature `serde`.
+
+```toml
+[dependencies]
+cheetah-string = { version = "1", features = ["serde"] }
+```
+
 ## Contributing
 
 We welcome issues and pull requests to help build a more efficient string manipulation library together!
 
+## License
+
+**cheetah-string** is licensed under the [Apache License 2.0](https://github.com/mxsm/cheetah-string/blob/main/LICENSE) and [MIT license](https://github.com/mxsm/cheetah-string/blob/main/LICENSE-MIT)
