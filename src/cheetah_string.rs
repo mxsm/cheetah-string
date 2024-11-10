@@ -253,6 +253,12 @@ impl Display for CheetahString {
     }
 }
 
+impl std::fmt::Debug for CheetahString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        self.as_str().fmt(f)
+    }
+}
+
 /// The `InnerString` enum represents different types of string storage.
 ///
 /// Variants:
