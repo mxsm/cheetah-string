@@ -1,3 +1,4 @@
+use core::fmt;
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
@@ -250,6 +251,12 @@ impl Hash for CheetahString {
 impl Display for CheetahString {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         self.as_str().fmt(f)
+    }
+}
+
+impl std::fmt::Debug for CheetahString {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fmt::Debug::fmt(self.as_str(), f)
     }
 }
 
