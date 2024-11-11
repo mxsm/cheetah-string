@@ -13,12 +13,11 @@ impl Serialize for CheetahString {
             InnerString::StaticStr(s) => serializer.serialize_str(s),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(bytes) => serializer.serialize_bytes(bytes.as_ref()),
-            InnerString::Empty => Ok(()),
+            InnerString::Empty => serializer.serialize_bytes(&[]),
         }
     }
 }
 
-#[cfg(any(feature = "std", feature = "alloc"))]
 pub fn cheetah_string<'de: 'a, 'a, D>(deserializer: D) -> Result<CheetahString, D::Error>
 where
     D: Deserializer<'de>,
