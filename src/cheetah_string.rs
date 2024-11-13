@@ -1,9 +1,10 @@
 use core::fmt;
-use std::borrow::Borrow;
+use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering;
 use std::fmt::Display;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::str::FromStr;
 use std::sync::Arc;
 
 const EMPTY_STRING: &str = "";
@@ -46,6 +47,38 @@ impl From<&[u8]> for CheetahString {
     }
 }
 
+impl FromStr for CheetahString {
+    type Err = std::string::ParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(CheetahString::from_slice(s))
+    }
+}
+
+impl From<Vec<u8>> for CheetahString {
+    fn from(v: Vec<u8>) -> Self {
+        CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(&v) })
+    }
+}
+
+impl From<Cow<'static, str>> for CheetahString {
+    fn from(cow: Cow<'static, str>) -> Self {
+        match cow {
+            Cow::Borrowed(s) => CheetahString::from_static_str(s),
+            Cow::Owned(s) => CheetahString::from_string(s),
+        }
+    }
+}
+
+impl From<Cow<'_, String>> for CheetahString {
+    fn from(cow: Cow<'_, String>) -> Self {
+        match cow {
+            Cow::Borrowed(s) => CheetahString::from_slice(s),
+            Cow::Owned(s) => CheetahString::from_string(s),
+        }
+    }
+}
+
 #[cfg(feature = "bytes")]
 impl From<bytes::Bytes> for CheetahString {
     fn from(b: bytes::Bytes) -> Self {
@@ -62,6 +95,9 @@ impl From<CheetahString> for String {
             CheetahString {
                 inner: InnerString::StaticStr(s),
             } => s.to_string(),
+            CheetahString {
+                inner: InnerString::ArcVecString(s),
+            } => unsafe { String::from_utf8_unchecked(s.to_vec()) },
             #[cfg(feature = "bytes")]
             CheetahString {
                 inner: InnerString::Bytes(b),
@@ -115,6 +151,20 @@ impl CheetahString {
     }
 
     #[inline]
+    pub fn from_vec(s: Vec<u8>) -> Self {
+        CheetahString {
+            inner: InnerString::ArcVecString(Arc::new(s)),
+        }
+    }
+
+    #[inline]
+    pub fn from_arc_vec(s: Arc<Vec<u8>>) -> Self {
+        CheetahString {
+            inner: InnerString::ArcVecString(s),
+        }
+    }
+
+    #[inline]
     pub fn from_slice(s: &str) -> Self {
         CheetahString {
             inner: InnerString::ArcString(Arc::new(s.to_owned())),
@@ -147,6 +197,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::ArcString(s) => s.as_str(),
             InnerString::StaticStr(s) => s,
+            InnerString::ArcVecString(s) => std::str::from_utf8(s.as_ref()).unwrap(),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(b) => std::str::from_utf8(b.as_ref()).unwrap(),
             InnerString::Empty => EMPTY_STRING,
@@ -158,6 +209,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::ArcString(s) => s.as_bytes(),
             InnerString::StaticStr(s) => s.as_bytes(),
+            InnerString::ArcVecString(s) => s.as_ref(),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(b) => b.as_ref(),
             InnerString::Empty => &[],
@@ -169,6 +221,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::ArcString(s) => s.len(),
             InnerString::StaticStr(s) => s.len(),
+            InnerString::ArcVecString(s) => s.len(),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(b) => b.len(),
             InnerString::Empty => 0,
@@ -180,6 +233,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::ArcString(s) => s.is_empty(),
             InnerString::StaticStr(s) => s.is_empty(),
+            InnerString::ArcVecString(s) => s.is_empty(),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(b) => b.is_empty(),
             InnerString::Empty => true,
@@ -202,6 +256,12 @@ impl PartialEq<str> for CheetahString {
 impl PartialEq<String> for CheetahString {
     fn eq(&self, other: &String) -> bool {
         self.as_str() == other.as_str()
+    }
+}
+
+impl PartialEq<Vec<u8>> for CheetahString {
+    fn eq(&self, other: &Vec<u8>) -> bool {
+        self.as_bytes() == other.as_slice()
     }
 }
 
@@ -279,6 +339,7 @@ impl Borrow<str> for CheetahString {
 pub(super) enum InnerString {
     ArcString(Arc<String>),
     StaticStr(&'static str),
+    ArcVecString(Arc<Vec<u8>>),
     #[cfg(feature = "bytes")]
     Bytes(bytes::Bytes),
     Empty,
