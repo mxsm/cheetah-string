@@ -130,6 +130,12 @@ impl AsRef<[u8]> for CheetahString {
     }
 }
 
+impl From<&String> for CheetahString {
+    fn from(s: &String) -> Self {
+        CheetahString::from_slice(s)
+    }
+}
+
 impl CheetahString {
     #[inline]
     pub fn empty() -> Self {
