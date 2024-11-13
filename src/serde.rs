@@ -11,6 +11,7 @@ impl Serialize for CheetahString {
         match &self.inner {
             InnerString::ArcString(s) => serializer.serialize_str(s.as_str()),
             InnerString::StaticStr(s) => serializer.serialize_str(s),
+            InnerString::ArcVecString(s) => serializer.serialize_bytes(s),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(bytes) => serializer.serialize_bytes(bytes.as_ref()),
             InnerString::Empty => serializer.serialize_bytes(&[]),
