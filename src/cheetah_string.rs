@@ -86,6 +86,12 @@ impl From<bytes::Bytes> for CheetahString {
     }
 }
 
+impl From<&CheetahString> for CheetahString {
+    fn from(s: &CheetahString) -> Self {
+        s.clone()
+    }
+}
+
 impl From<CheetahString> for String {
     fn from(s: CheetahString) -> Self {
         match s {
