@@ -201,6 +201,12 @@ impl From<&String> for CheetahString {
     }
 }
 
+impl Borrow<str> for CheetahString {
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl CheetahString {
     #[inline]
     pub fn empty() -> Self {
