@@ -24,24 +24,28 @@ impl Default for CheetahString {
 }
 
 impl From<String> for CheetahString {
+    #[inline]
     fn from(s: String) -> Self {
         CheetahString::from_string(s)
     }
 }
 
 impl From<Arc<String>> for CheetahString {
+    #[inline]
     fn from(s: Arc<String>) -> Self {
         CheetahString::from_arc_string(s)
     }
 }
 
 impl<'a> From<&'a str> for CheetahString {
+    #[inline]
     fn from(s: &'a str) -> Self {
         CheetahString::from_slice(s)
     }
 }
 
 impl From<&[u8]> for CheetahString {
+    #[inline]
     fn from(b: &[u8]) -> Self {
         CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(b) })
     }
@@ -49,19 +53,21 @@ impl From<&[u8]> for CheetahString {
 
 impl FromStr for CheetahString {
     type Err = std::string::ParseError;
-
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(CheetahString::from_slice(s))
     }
 }
 
 impl From<Vec<u8>> for CheetahString {
+    #[inline]
     fn from(v: Vec<u8>) -> Self {
         CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(&v) })
     }
 }
 
 impl From<Cow<'static, str>> for CheetahString {
+    #[inline]
     fn from(cow: Cow<'static, str>) -> Self {
         match cow {
             Cow::Borrowed(s) => CheetahString::from_static_str(s),
@@ -71,6 +77,7 @@ impl From<Cow<'static, str>> for CheetahString {
 }
 
 impl From<Cow<'_, String>> for CheetahString {
+    #[inline]
     fn from(cow: Cow<'_, String>) -> Self {
         match cow {
             Cow::Borrowed(s) => CheetahString::from_slice(s),
@@ -79,14 +86,66 @@ impl From<Cow<'_, String>> for CheetahString {
     }
 }
 
+impl From<char> for CheetahString {
+    /// Allocates an owned [`CheetahString`] from a single character.
+    ///
+    /// # Example
+    /// ```rust
+    /// use cheetah_string::CheetahString;
+    /// let c: char = 'a';
+    /// let s: CheetahString = CheetahString::from(c);
+    /// assert_eq!("a", &s[..]);
+    /// ```
+    #[inline]
+    fn from(c: char) -> Self {
+        CheetahString::from_string(c.to_string())
+    }
+}
+
+impl<'a> FromIterator<&'a char> for CheetahString {
+    fn from_iter<T: IntoIterator<Item = &'a char>>(iter: T) -> CheetahString {
+        let mut buf = String::new();
+        buf.extend(iter);
+        CheetahString::from_string(buf)
+    }
+}
+
+impl<'a> FromIterator<&'a str> for CheetahString {
+    fn from_iter<I: IntoIterator<Item = &'a str>>(iter: I) -> CheetahString {
+        let mut buf = String::new();
+        buf.extend(iter);
+        CheetahString::from_string(buf)
+    }
+}
+
+impl FromIterator<String> for CheetahString {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = String>>(iter: T) -> Self {
+        let mut buf = String::new();
+        buf.extend(iter);
+        CheetahString::from_string(buf)
+    }
+}
+
+impl<'a> FromIterator<&'a String> for CheetahString {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = &'a String>>(iter: T) -> Self {
+        let mut buf = String::new();
+        buf.extend(iter.into_iter().map(|s| s.as_str()));
+        CheetahString::from_string(buf)
+    }
+}
+
 #[cfg(feature = "bytes")]
 impl From<bytes::Bytes> for CheetahString {
+    #[inline]
     fn from(b: bytes::Bytes) -> Self {
         CheetahString::from_bytes(b)
     }
 }
 
 impl From<&CheetahString> for CheetahString {
+    #[inline]
     fn from(s: &CheetahString) -> Self {
         s.clone()
     }
