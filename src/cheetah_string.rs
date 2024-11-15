@@ -195,6 +195,12 @@ impl AsRef<[u8]> for CheetahString {
     }
 }
 
+impl AsRef<CheetahString> for CheetahString {
+    fn as_ref(&self) -> &CheetahString {
+        self
+    }
+}
+
 impl From<&String> for CheetahString {
     fn from(s: &String) -> Self {
         CheetahString::from_slice(s)
