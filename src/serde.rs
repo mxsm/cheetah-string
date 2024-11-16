@@ -1,4 +1,4 @@
-use crate::cheetah_string::InnerString;
+use crate::cheetah_string::{InnerString, EMPTY_STRING};
 use crate::CheetahString;
 use serde::de::{Error, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -14,7 +14,7 @@ impl Serialize for CheetahString {
             InnerString::ArcVecString(s) => serializer.serialize_bytes(s),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(bytes) => serializer.serialize_bytes(bytes.as_ref()),
-            InnerString::Empty => serializer.serialize_bytes(&[]),
+            InnerString::Empty => serializer.serialize_str(EMPTY_STRING),
         }
     }
 }

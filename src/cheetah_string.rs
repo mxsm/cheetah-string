@@ -7,7 +7,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 
-const EMPTY_STRING: &str = "";
+pub const EMPTY_STRING: &str = "";
 
 #[derive(Clone)]
 #[repr(transparent)]
@@ -192,6 +192,12 @@ impl AsRef<str> for CheetahString {
 impl AsRef<[u8]> for CheetahString {
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
+    }
+}
+
+impl AsRef<CheetahString> for CheetahString {
+    fn as_ref(&self) -> &CheetahString {
+        self
     }
 }
 
