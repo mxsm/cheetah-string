@@ -7,7 +7,7 @@ use std::ops::Deref;
 use std::str::FromStr;
 use std::sync::Arc;
 
-const EMPTY_STRING: &str = "";
+pub const EMPTY_STRING: &str = "";
 
 #[derive(Clone)]
 #[repr(transparent)]
