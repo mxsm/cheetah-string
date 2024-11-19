@@ -103,6 +103,7 @@ impl From<char> for CheetahString {
 }
 
 impl<'a> FromIterator<&'a char> for CheetahString {
+    #[inline]
     fn from_iter<T: IntoIterator<Item = &'a char>>(iter: T) -> CheetahString {
         let mut buf = String::new();
         buf.extend(iter);
@@ -152,6 +153,7 @@ impl From<&CheetahString> for CheetahString {
 }
 
 impl From<CheetahString> for String {
+    #[inline]
     fn from(s: CheetahString) -> Self {
         match s {
             CheetahString {
@@ -184,24 +186,28 @@ impl Deref for CheetahString {
 }
 
 impl AsRef<str> for CheetahString {
+    #[inline]
     fn as_ref(&self) -> &str {
         self.as_str()
     }
 }
 
 impl AsRef<[u8]> for CheetahString {
+    #[inline]
     fn as_ref(&self) -> &[u8] {
         self.as_bytes()
     }
 }
 
 impl AsRef<CheetahString> for CheetahString {
+    #[inline]
     fn as_ref(&self) -> &CheetahString {
         self
     }
 }
 
 impl From<&String> for CheetahString {
+    #[inline]
     fn from(s: &String) -> Self {
         CheetahString::from_slice(s)
     }
@@ -209,7 +215,7 @@ impl From<&String> for CheetahString {
 
 impl CheetahString {
     #[inline]
-    pub fn empty() -> Self {
+    pub const fn empty() -> Self {
         CheetahString {
             inner: InnerString::Empty,
         }
@@ -319,48 +325,56 @@ impl CheetahString {
 }
 
 impl PartialEq for CheetahString {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.as_str() == other.as_str()
     }
 }
 
 impl PartialEq<str> for CheetahString {
+    #[inline]
     fn eq(&self, other: &str) -> bool {
         self.as_str() == other
     }
 }
 
 impl PartialEq<String> for CheetahString {
+    #[inline]
     fn eq(&self, other: &String) -> bool {
         self.as_str() == other.as_str()
     }
 }
 
 impl PartialEq<Vec<u8>> for CheetahString {
+    #[inline]
     fn eq(&self, other: &Vec<u8>) -> bool {
         self.as_bytes() == other.as_slice()
     }
 }
 
 impl<'a> PartialEq<&'a str> for CheetahString {
+    #[inline]
     fn eq(&self, other: &&'a str) -> bool {
         self.as_str() == *other
     }
 }
 
 impl PartialEq<CheetahString> for str {
+    #[inline]
     fn eq(&self, other: &CheetahString) -> bool {
         self == other.as_str()
     }
 }
 
 impl PartialEq<CheetahString> for String {
+    #[inline]
     fn eq(&self, other: &CheetahString) -> bool {
         self.as_str() == other.as_str()
     }
 }
 
 impl PartialEq<CheetahString> for &str {
+    #[inline]
     fn eq(&self, other: &CheetahString) -> bool {
         *self == other.as_str()
     }
@@ -369,36 +383,42 @@ impl PartialEq<CheetahString> for &str {
 impl Eq for CheetahString {}
 
 impl PartialOrd for CheetahString {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
 impl Ord for CheetahString {
+    #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
         self.as_str().cmp(other.as_str())
     }
 }
 
 impl Hash for CheetahString {
+    #[inline]
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
 }
 
 impl Display for CheetahString {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         self.as_str().fmt(f)
     }
 }
 
 impl std::fmt::Debug for CheetahString {
+    #[inline]
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         fmt::Debug::fmt(self.as_str(), f)
     }
 }
 
 impl Borrow<str> for CheetahString {
+    #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
     }
