@@ -38,6 +38,10 @@ cheetah-string = { version = "1", features = ["bytes"] }
 cheetah-string = { version = "1", features = ["serde"] }
 ```
 
+##  Projects used
+
+- [**Rocketmq-rust**](https://github.com/mxsm/rocketmq-rust)
+
 ## Contributing
 
 We welcome issues and pull requests to help build a more efficient string manipulation library together!
