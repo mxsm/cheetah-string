@@ -47,7 +47,9 @@ impl<'a> From<&'a str> for CheetahString {
 impl From<&[u8]> for CheetahString {
     #[inline]
     fn from(b: &[u8]) -> Self {
-        CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(b) })
+        std::str::from_utf8(b)
+            .map(|s| s.into())
+            .unwrap_or_else(|_| Self::empty())
     }
 }
 
@@ -108,6 +110,14 @@ impl<'a> FromIterator<&'a char> for CheetahString {
         let mut buf = String::new();
         buf.extend(iter);
         CheetahString::from_string(buf)
+    }
+}
+
+impl FromIterator<char> for CheetahString {
+    #[inline]
+    fn from_iter<T: IntoIterator<Item = char>>(iter: T) -> Self {
+        let s: String = iter.into_iter().collect();
+        s.into()
     }
 }
 
@@ -234,10 +244,26 @@ impl CheetahString {
     }
 
     #[inline]
+    #[deprecated(since = "0.1.7", note = "Please use `from_utf8_unchecked` instead")]
     pub fn from_vec(s: Vec<u8>) -> Self {
         CheetahString {
             inner: InnerString::ArcVecString(Arc::new(s)),
         }
+    }
+
+    #[inline]
+    pub unsafe fn from_utf8_unchecked(bytes: Vec<u8>) -> Self {
+        Self {
+            inner: InnerString::ArcVecString(Arc::new(bytes)),
+        }
+    }
+
+    #[inline]
+    pub fn from_utf8(bytes: Vec<u8>) -> Result<Self, std::str::Utf8Error> {
+        std::str::from_utf8(&bytes)?;
+        Ok(Self {
+            inner: InnerString::ArcVecString(Arc::new(bytes)),
+        })
     }
 
     #[inline]
@@ -248,6 +274,7 @@ impl CheetahString {
     }
 
     #[inline]
+    #[deprecated(since = "0.1.7", note = "Please use `from_slice` instead")]
     pub fn from_slice(s: &str) -> Self {
         CheetahString {
             inner: InnerString::ArcString(Arc::new(s.to_owned())),
@@ -255,11 +282,19 @@ impl CheetahString {
     }
 
     #[inline]
-    pub fn from_string(s: String) -> Self {
+    pub fn from_str(s: &str) -> Self {
         CheetahString {
-            inner: InnerString::ArcString(Arc::new(s)),
+            inner: InnerString::ArcString(Arc::new(s.to_owned())),
         }
     }
+
+    #[inline]
+    pub fn from_string(s: impl Into<Arc<String>>) -> Self {
+        Self {
+            inner: InnerString::ArcString(s.into()),
+        }
+    }
+
     #[inline]
     pub fn from_arc_string(s: Arc<String>) -> Self {
         CheetahString {
@@ -321,6 +356,20 @@ impl CheetahString {
             InnerString::Bytes(b) => b.is_empty(),
             InnerString::Empty => true,
         }
+    }
+
+    pub fn concat(&self, other: &str) -> Self {
+        let mut s = self.to_string();
+        s.push_str(other);
+        s.into()
+    }
+
+    pub fn to_uppercase(&self) -> Self {
+        self.as_str().to_uppercase().into()
+    }
+
+    pub fn to_lowercase(&self) -> Self {
+        self.as_str().to_lowercase().into()
     }
 }
 
