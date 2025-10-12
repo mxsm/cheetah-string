@@ -227,7 +227,7 @@ impl CheetahString {
     }
 
     #[inline]
-    pub fn from_static_str(s: &'static str) -> Self {
+    pub const fn from_static_str(s: &'static str) -> Self {
         CheetahString {
             inner: InnerString::StaticStr(s),
         }
