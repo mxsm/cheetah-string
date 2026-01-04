@@ -441,6 +441,277 @@ impl CheetahString {
             InnerString::Bytes(b) => b.is_empty(),
         }
     }
+
+    // Query methods - delegate to &str
+
+    /// Returns `true` if the string starts with the given pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert!(s.starts_with("hello"));
+    /// assert!(!s.starts_with("world"));
+    /// ```
+    #[inline]
+    pub fn starts_with<P: AsRef<str>>(&self, pat: P) -> bool {
+        self.as_str().starts_with(pat.as_ref())
+    }
+
+    /// Returns `true` if the string ends with the given pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert!(s.ends_with("world"));
+    /// assert!(!s.ends_with("hello"));
+    /// ```
+    #[inline]
+    pub fn ends_with<P: AsRef<str>>(&self, pat: P) -> bool {
+        self.as_str().ends_with(pat.as_ref())
+    }
+
+    /// Returns `true` if the string contains the given pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert!(s.contains("llo"));
+    /// assert!(!s.contains("xyz"));
+    /// ```
+    #[inline]
+    pub fn contains<P: AsRef<str>>(&self, pat: P) -> bool {
+        self.as_str().contains(pat.as_ref())
+    }
+
+    /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert_eq!(s.find("world"), Some(6));
+    /// assert_eq!(s.find("xyz"), None);
+    /// ```
+    #[inline]
+    pub fn find<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
+        self.as_str().find(pat.as_ref())
+    }
+
+    /// Returns the byte index of the last occurrence of the pattern, or `None` if not found.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello hello");
+    /// assert_eq!(s.rfind("hello"), Some(6));
+    /// ```
+    #[inline]
+    pub fn rfind<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
+        self.as_str().rfind(pat.as_ref())
+    }
+
+    /// Returns a string slice with leading and trailing whitespace removed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("  hello  ");
+    /// assert_eq!(s.trim(), "hello");
+    /// ```
+    #[inline]
+    pub fn trim(&self) -> &str {
+        self.as_str().trim()
+    }
+
+    /// Returns a string slice with leading whitespace removed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("  hello");
+    /// assert_eq!(s.trim_start(), "hello");
+    /// ```
+    #[inline]
+    pub fn trim_start(&self) -> &str {
+        self.as_str().trim_start()
+    }
+
+    /// Returns a string slice with trailing whitespace removed.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello  ");
+    /// assert_eq!(s.trim_end(), "hello");
+    /// ```
+    #[inline]
+    pub fn trim_end(&self) -> &str {
+        self.as_str().trim_end()
+    }
+
+    /// Splits the string by the given pattern.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("a,b,c");
+    /// let parts: Vec<&str> = s.split(",").collect();
+    /// assert_eq!(parts, vec!["a", "b", "c"]);
+    /// ```
+    #[inline]
+    pub fn split<'a>(&'a self, pat: &'a str) -> impl Iterator<Item = &'a str> {
+        self.as_str().split(pat)
+    }
+
+    /// Returns an iterator over the lines of the string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("line1\nline2\nline3");
+    /// let lines: Vec<&str> = s.lines().collect();
+    /// assert_eq!(lines, vec!["line1", "line2", "line3"]);
+    /// ```
+    #[inline]
+    pub fn lines(&self) -> impl Iterator<Item = &str> {
+        self.as_str().lines()
+    }
+
+    /// Returns an iterator over the characters of the string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello");
+    /// let chars: Vec<char> = s.chars().collect();
+    /// assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
+    /// ```
+    #[inline]
+    pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
+        self.as_str().chars()
+    }
+
+    // Transformation methods - create new CheetahString
+
+    /// Returns a new `CheetahString` with all characters converted to uppercase.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello");
+    /// assert_eq!(s.to_uppercase(), "HELLO");
+    /// ```
+    #[inline]
+    pub fn to_uppercase(&self) -> CheetahString {
+        CheetahString::from_string(self.as_str().to_uppercase())
+    }
+
+    /// Returns a new `CheetahString` with all characters converted to lowercase.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("HELLO");
+    /// assert_eq!(s.to_lowercase(), "hello");
+    /// ```
+    #[inline]
+    pub fn to_lowercase(&self) -> CheetahString {
+        CheetahString::from_string(self.as_str().to_lowercase())
+    }
+
+    /// Replaces all occurrences of a pattern with another string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert_eq!(s.replace("world", "rust"), "hello rust");
+    /// ```
+    #[inline]
+    pub fn replace<P: AsRef<str>>(&self, from: P, to: &str) -> CheetahString {
+        CheetahString::from_string(self.as_str().replace(from.as_ref(), to))
+    }
+
+    /// Returns a new `CheetahString` with the specified range replaced.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert_eq!(s.replacen("l", "L", 1), "heLlo world");
+    /// ```
+    #[inline]
+    pub fn replacen<P: AsRef<str>>(&self, from: P, to: &str, count: usize) -> CheetahString {
+        CheetahString::from_string(self.as_str().replacen(from.as_ref(), to, count))
+    }
+
+    /// Returns a substring as a new `CheetahString`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the indices are not on valid UTF-8 character boundaries.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert_eq!(s.substring(0, 5), "hello");
+    /// assert_eq!(s.substring(6, 11), "world");
+    /// ```
+    #[inline]
+    pub fn substring(&self, start: usize, end: usize) -> CheetahString {
+        CheetahString::from_slice(&self.as_str()[start..end])
+    }
+
+    /// Repeats the string `n` times.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("abc");
+    /// assert_eq!(s.repeat(3), "abcabcabc");
+    /// ```
+    #[inline]
+    pub fn repeat(&self, n: usize) -> CheetahString {
+        CheetahString::from_string(self.as_str().repeat(n))
+    }
 }
 
 impl PartialEq for CheetahString {
@@ -540,6 +811,121 @@ impl Borrow<str> for CheetahString {
     #[inline]
     fn borrow(&self) -> &str {
         self.as_str()
+    }
+}
+
+// Add trait implementations for string concatenation
+
+impl std::ops::Add<&str> for CheetahString {
+    type Output = CheetahString;
+
+    /// Concatenates a `CheetahString` with a string slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("Hello");
+    /// let result = s + " World";
+    /// assert_eq!(result, "Hello World");
+    /// ```
+    #[inline]
+    fn add(self, rhs: &str) -> Self::Output {
+        let mut result = String::with_capacity(self.len() + rhs.len());
+        result.push_str(self.as_str());
+        result.push_str(rhs);
+        CheetahString::from_string(result)
+    }
+}
+
+impl std::ops::Add<&CheetahString> for CheetahString {
+    type Output = CheetahString;
+
+    /// Concatenates two `CheetahString` values.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s1 = CheetahString::from("Hello");
+    /// let s2 = CheetahString::from(" World");
+    /// let result = s1 + &s2;
+    /// assert_eq!(result, "Hello World");
+    /// ```
+    #[inline]
+    fn add(self, rhs: &CheetahString) -> Self::Output {
+        let mut result = String::with_capacity(self.len() + rhs.len());
+        result.push_str(self.as_str());
+        result.push_str(rhs.as_str());
+        CheetahString::from_string(result)
+    }
+}
+
+impl std::ops::Add<String> for CheetahString {
+    type Output = CheetahString;
+
+    /// Concatenates a `CheetahString` with a `String`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("Hello");
+    /// let result = s + String::from(" World");
+    /// assert_eq!(result, "Hello World");
+    /// ```
+    #[inline]
+    fn add(self, rhs: String) -> Self::Output {
+        let mut result = String::with_capacity(self.len() + rhs.len());
+        result.push_str(self.as_str());
+        result.push_str(&rhs);
+        CheetahString::from_string(result)
+    }
+}
+
+impl std::ops::AddAssign<&str> for CheetahString {
+    /// Appends a string slice to a `CheetahString`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let mut s = CheetahString::from("Hello");
+    /// s += " World";
+    /// assert_eq!(s, "Hello World");
+    /// ```
+    #[inline]
+    fn add_assign(&mut self, rhs: &str) {
+        let mut result = String::with_capacity(self.len() + rhs.len());
+        result.push_str(self.as_str());
+        result.push_str(rhs);
+        *self = CheetahString::from_string(result);
+    }
+}
+
+impl std::ops::AddAssign<&CheetahString> for CheetahString {
+    /// Appends a `CheetahString` to another `CheetahString`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let mut s1 = CheetahString::from("Hello");
+    /// let s2 = CheetahString::from(" World");
+    /// s1 += &s2;
+    /// assert_eq!(s1, "Hello World");
+    /// ```
+    #[inline]
+    fn add_assign(&mut self, rhs: &CheetahString) {
+        let mut result = String::with_capacity(self.len() + rhs.len());
+        result.push_str(self.as_str());
+        result.push_str(rhs.as_str());
+        *self = CheetahString::from_string(result);
     }
 }
 
