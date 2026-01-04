@@ -17,7 +17,7 @@ fn test_sso_short_string() {
         ("hello world", 11),
         ("12345678901234567890123", 23), // Exactly 23 bytes
     ];
-    
+
     for (text, expected_len) in test_cases {
         let s = CheetahString::from(text);
         assert_eq!(s.len(), expected_len);
@@ -99,7 +99,7 @@ fn test_sso_equality() {
     let s1 = CheetahString::from("test");
     let s2 = CheetahString::from("test");
     let s3 = CheetahString::from("different");
-    
+
     assert_eq!(s1, s2);
     assert_ne!(s1, s3);
     assert_eq!(s1, "test");
@@ -109,11 +109,11 @@ fn test_sso_equality() {
 #[test]
 fn test_sso_hash() {
     use std::collections::HashMap;
-    
+
     let mut map = HashMap::new();
     let key1 = CheetahString::from("key");
     let key2 = CheetahString::from("key");
-    
+
     map.insert(key1, 42);
     assert_eq!(map.get(&key2), Some(&42));
 }
@@ -123,7 +123,7 @@ fn test_sso_ordering() {
     let s1 = CheetahString::from("apple");
     let s2 = CheetahString::from("banana");
     let s3 = CheetahString::from("apple");
-    
+
     assert!(s1 < s2);
     assert!(s2 > s1);
     assert!(s1 <= s3);
@@ -155,10 +155,10 @@ fn test_sso_mixed_lengths() {
     // Test that we can handle mixed inline and arc strings properly
     let short = CheetahString::from("short");
     let long = CheetahString::from("a".repeat(100));
-    
+
     assert_eq!(short.len(), 5);
     assert_eq!(long.len(), 100);
-    
+
     assert_eq!(short.as_str(), "short");
     assert_eq!(long.as_str(), &"a".repeat(100));
 }
@@ -181,15 +181,8 @@ fn test_sso_from_char() {
 #[test]
 fn test_sso_special_chars() {
     // Test special characters
-    let test_cases = vec![
-        "\n",
-        "\t",
-        "\\",
-        "\"",
-        "hello\nworld",
-        "tab\there",
-    ];
-    
+    let test_cases = vec!["\n", "\t", "\\", "\"", "hello\nworld", "tab\there"];
+
     for text in test_cases {
         let s = CheetahString::from(text);
         assert_eq!(s.as_str(), text);
