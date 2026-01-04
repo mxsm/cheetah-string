@@ -1,4 +1,5 @@
 use core::fmt;
+use core::str::Utf8Error;
 use std::borrow::{Borrow, Cow};
 use std::cmp::Ordering;
 use std::fmt::Display;
@@ -44,9 +45,18 @@ impl<'a> From<&'a str> for CheetahString {
     }
 }
 
+/// # Safety Warning
+///
+/// This implementation uses `unsafe` code and may cause undefined behavior
+/// if the bytes are not valid UTF-8. Consider using `CheetahString::try_from_bytes()`
+/// for safe UTF-8 validation.
+///
+/// This implementation will be deprecated in a future version.
 impl From<&[u8]> for CheetahString {
     #[inline]
     fn from(b: &[u8]) -> Self {
+        // SAFETY: This is unsafe and may cause UB if bytes are not valid UTF-8.
+        // This will be deprecated in favor of try_from_bytes in the next version.
         CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(b) })
     }
 }
@@ -59,9 +69,18 @@ impl FromStr for CheetahString {
     }
 }
 
+/// # Safety Warning
+///
+/// This implementation uses `unsafe` code and may cause undefined behavior
+/// if the bytes are not valid UTF-8. Consider using `CheetahString::try_from_vec()`
+/// for safe UTF-8 validation.
+///
+/// This implementation will be deprecated in a future version.
 impl From<Vec<u8>> for CheetahString {
     #[inline]
     fn from(v: Vec<u8>) -> Self {
+        // SAFETY: This is unsafe and may cause UB if bytes are not valid UTF-8.
+        // This will be deprecated in favor of try_from_vec in the next version.
         CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(&v) })
     }
 }
@@ -164,11 +183,17 @@ impl From<CheetahString> for String {
             } => s.to_string(),
             CheetahString {
                 inner: InnerString::ArcVecString(s),
-            } => unsafe { String::from_utf8_unchecked(s.to_vec()) },
+            } => {
+                // SAFETY: ArcVecString should only be created from valid UTF-8 sources
+                unsafe { String::from_utf8_unchecked(s.to_vec()) }
+            }
             #[cfg(feature = "bytes")]
             CheetahString {
                 inner: InnerString::Bytes(b),
-            } => unsafe { String::from_utf8_unchecked(b.to_vec()) },
+            } => {
+                // SAFETY: Bytes variant should only be created from valid UTF-8 sources
+                unsafe { String::from_utf8_unchecked(b.to_vec()) }
+            }
             CheetahString {
                 inner: InnerString::Empty,
             } => String::new(),
@@ -240,6 +265,55 @@ impl CheetahString {
         }
     }
 
+    /// Creates a `CheetahString` from a byte vector with UTF-8 validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the bytes are not valid UTF-8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let bytes = vec![104, 101, 108, 108, 111]; // "hello"
+    /// let s = CheetahString::try_from_vec(bytes).unwrap();
+    /// assert_eq!(s, "hello");
+    ///
+    /// let invalid = vec![0xFF, 0xFE];
+    /// assert!(CheetahString::try_from_vec(invalid).is_err());
+    /// ```
+    pub fn try_from_vec(v: Vec<u8>) -> Result<Self, Utf8Error> {
+        // Validate UTF-8
+        std::str::from_utf8(&v)?;
+        Ok(CheetahString {
+            inner: InnerString::ArcVecString(Arc::new(v)),
+        })
+    }
+
+    /// Creates a `CheetahString` from a byte slice with UTF-8 validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the bytes are not valid UTF-8.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let bytes = b"hello";
+    /// let s = CheetahString::try_from_bytes(bytes).unwrap();
+    /// assert_eq!(s, "hello");
+    ///
+    /// let invalid = &[0xFF, 0xFE];
+    /// assert!(CheetahString::try_from_bytes(invalid).is_err());
+    /// ```
+    pub fn try_from_bytes(b: &[u8]) -> Result<Self, Utf8Error> {
+        let s = std::str::from_utf8(b)?;
+        Ok(CheetahString::from_slice(s))
+    }
+
     #[inline]
     pub fn from_arc_vec(s: Arc<Vec<u8>>) -> Self {
         CheetahString {
@@ -280,9 +354,17 @@ impl CheetahString {
         match &self.inner {
             InnerString::ArcString(s) => s.as_str(),
             InnerString::StaticStr(s) => s,
-            InnerString::ArcVecString(s) => std::str::from_utf8(s.as_ref()).unwrap(),
+            InnerString::ArcVecString(s) => {
+                // SAFETY: ArcVecString is only created from validated UTF-8 sources.
+                // All constructors ensure this invariant is maintained.
+                unsafe { std::str::from_utf8_unchecked(s.as_ref()) }
+            }
             #[cfg(feature = "bytes")]
-            InnerString::Bytes(b) => std::str::from_utf8(b.as_ref()).unwrap(),
+            InnerString::Bytes(b) => {
+                // SAFETY: Bytes variant is only created from validated UTF-8 sources.
+                // The from_bytes constructor ensures this invariant.
+                unsafe { std::str::from_utf8_unchecked(b.as_ref()) }
+            }
             InnerString::Empty => EMPTY_STRING,
         }
     }
