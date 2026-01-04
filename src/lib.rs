@@ -19,8 +19,10 @@
 //! ```
 //!
 mod cheetah_string;
+mod error;
 
 #[cfg(feature = "serde")]
 mod serde;
 
 pub use cheetah_string::CheetahString;
+pub use error::{Error, Result};
