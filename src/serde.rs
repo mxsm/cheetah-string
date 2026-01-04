@@ -1,4 +1,4 @@
-use crate::cheetah_string::{InnerString, EMPTY_STRING};
+use crate::cheetah_string::InnerString;
 use crate::CheetahString;
 use serde::de::{Error, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -9,12 +9,16 @@ impl Serialize for CheetahString {
         S: Serializer,
     {
         match &self.inner {
+            InnerString::Inline { len, data } => {
+                // Safety: InnerString::Inline guarantees that data[0..len] is valid UTF-8
+                let s = unsafe { std::str::from_utf8_unchecked(&data[..*len as usize]) };
+                serializer.serialize_str(s)
+            }
             InnerString::ArcString(s) => serializer.serialize_str(s.as_str()),
             InnerString::StaticStr(s) => serializer.serialize_str(s),
             InnerString::ArcVecString(s) => serializer.serialize_bytes(s),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(bytes) => serializer.serialize_bytes(bytes.as_ref()),
-            InnerString::Empty => serializer.serialize_str(EMPTY_STRING),
         }
     }
 }
