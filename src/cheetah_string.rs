@@ -186,6 +186,9 @@ impl From<CheetahString> for String {
                 inner: InnerString::StaticStr(s),
             } => s.to_string(),
             CheetahString {
+                inner: InnerString::ArcStr(s),
+            } => s.to_string(),
+            CheetahString {
                 inner: InnerString::ArcString(s),
             } => s.as_ref().clone(),
             CheetahString {
@@ -361,9 +364,10 @@ impl CheetahString {
                 },
             }
         } else {
-            // Use Arc for long strings
+            // Use Arc<str> for long strings to avoid double allocation
+            let arc_str: Arc<str> = s.into_boxed_str().into();
             CheetahString {
-                inner: InnerString::ArcString(Arc::new(s)),
+                inner: InnerString::ArcStr(arc_str),
             }
         }
     }
@@ -391,6 +395,7 @@ impl CheetahString {
                 unsafe { std::str::from_utf8_unchecked(&data[..*len as usize]) }
             }
             InnerString::StaticStr(s) => s,
+            InnerString::ArcStr(s) => s.as_ref(),
             InnerString::ArcString(s) => s.as_str(),
             InnerString::ArcVecString(s) => {
                 // SAFETY: ArcVecString is only created from validated UTF-8 sources.
@@ -411,6 +416,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::Inline { len, data } => &data[..*len as usize],
             InnerString::StaticStr(s) => s.as_bytes(),
+            InnerString::ArcStr(s) => s.as_bytes(),
             InnerString::ArcString(s) => s.as_bytes(),
             InnerString::ArcVecString(s) => s.as_ref(),
             #[cfg(feature = "bytes")]
@@ -423,6 +429,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::Inline { len, .. } => *len as usize,
             InnerString::StaticStr(s) => s.len(),
+            InnerString::ArcStr(s) => s.len(),
             InnerString::ArcString(s) => s.len(),
             InnerString::ArcVecString(s) => s.len(),
             #[cfg(feature = "bytes")]
@@ -435,6 +442,7 @@ impl CheetahString {
         match &self.inner {
             InnerString::Inline { len, .. } => *len == 0,
             InnerString::StaticStr(s) => s.is_empty(),
+            InnerString::ArcStr(s) => s.is_empty(),
             InnerString::ArcString(s) => s.is_empty(),
             InnerString::ArcVecString(s) => s.is_empty(),
             #[cfg(feature = "bytes")]
@@ -712,6 +720,117 @@ impl CheetahString {
     pub fn repeat(&self, n: usize) -> CheetahString {
         CheetahString::from_string(self.as_str().repeat(n))
     }
+
+    // Incremental building methods
+
+    /// Creates a new `CheetahString` with the specified capacity.
+    ///
+    /// The string will be able to hold at least `capacity` bytes without reallocating.
+    /// If `capacity` is less than or equal to the inline capacity (23 bytes),
+    /// an empty inline string is returned.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let mut s = CheetahString::with_capacity(100);
+    /// s.push_str("hello");
+    /// assert_eq!(s, "hello");
+    /// ```
+    #[inline]
+    pub fn with_capacity(capacity: usize) -> Self {
+        if capacity <= INLINE_CAPACITY {
+            CheetahString::empty()
+        } else {
+            CheetahString::from_string(String::with_capacity(capacity))
+        }
+    }
+
+    /// Appends a string slice to the end of this `CheetahString`.
+    ///
+    /// This method is optimized for incremental building and will:
+    /// - Mutate inline storage when possible
+    /// - Mutate unique Arc<String> in-place when available
+    /// - Only allocate when necessary
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let mut s = CheetahString::from("Hello");
+    /// s.push_str(" ");
+    /// s.push_str("World");
+    /// assert_eq!(s, "Hello World");
+    /// ```
+    #[inline]
+    pub fn push_str(&mut self, string: &str) {
+        *self += string;
+    }
+
+    /// Reserves capacity for at least `additional` more bytes.
+    ///
+    /// This method will modify the internal representation if needed to ensure
+    /// that the string can hold at least `additional` more bytes without reallocating.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let mut s = CheetahString::from("hello");
+    /// s.reserve(100);
+    /// s.push_str(" world");
+    /// ```
+    #[inline]
+    pub fn reserve(&mut self, additional: usize) {
+        let new_len = self.len() + additional;
+
+        // If it still fits inline, nothing to do
+        if new_len <= INLINE_CAPACITY {
+            return;
+        }
+
+        match &mut self.inner {
+            InnerString::Inline { .. } => {
+                // Convert inline to Arc<String> with capacity
+                let mut s = String::with_capacity(new_len);
+                s.push_str(self.as_str());
+                *self = CheetahString {
+                    inner: InnerString::ArcString(Arc::new(s)),
+                };
+            }
+            InnerString::ArcString(arc) if Arc::strong_count(arc) == 1 => {
+                // Reserve in the unique Arc<String>
+                if let Some(s) = Arc::get_mut(arc) {
+                    s.reserve(additional);
+                }
+            }
+            InnerString::StaticStr(_) | InnerString::ArcStr(_) => {
+                // Convert to Arc<String> with capacity
+                let mut s = String::with_capacity(new_len);
+                s.push_str(self.as_str());
+                *self = CheetahString {
+                    inner: InnerString::ArcString(Arc::new(s)),
+                };
+            }
+            _ => {
+                // For shared Arc or other types, convert if needed
+                if Arc::strong_count(match &self.inner {
+                    InnerString::ArcString(arc) => arc,
+                    _ => return,
+                }) > 1
+                {
+                    let mut s = String::with_capacity(new_len);
+                    s.push_str(self.as_str());
+                    *self = CheetahString {
+                        inner: InnerString::ArcString(Arc::new(s)),
+                    };
+                }
+            }
+        }
+    }
 }
 
 impl PartialEq for CheetahString {
@@ -832,7 +951,24 @@ impl std::ops::Add<&str> for CheetahString {
     /// ```
     #[inline]
     fn add(self, rhs: &str) -> Self::Output {
-        let mut result = String::with_capacity(self.len() + rhs.len());
+        let total_len = self.len() + rhs.len();
+
+        // Fast path: result fits in inline storage
+        if total_len <= INLINE_CAPACITY {
+            let mut data = [0u8; INLINE_CAPACITY];
+            let self_bytes = self.as_bytes();
+            data[..self_bytes.len()].copy_from_slice(self_bytes);
+            data[self_bytes.len()..total_len].copy_from_slice(rhs.as_bytes());
+            return CheetahString {
+                inner: InnerString::Inline {
+                    len: total_len as u8,
+                    data,
+                },
+            };
+        }
+
+        // Slow path: allocate for long result
+        let mut result = String::with_capacity(total_len);
         result.push_str(self.as_str());
         result.push_str(rhs);
         CheetahString::from_string(result)
@@ -856,7 +992,24 @@ impl std::ops::Add<&CheetahString> for CheetahString {
     /// ```
     #[inline]
     fn add(self, rhs: &CheetahString) -> Self::Output {
-        let mut result = String::with_capacity(self.len() + rhs.len());
+        let total_len = self.len() + rhs.len();
+
+        // Fast path: result fits in inline storage
+        if total_len <= INLINE_CAPACITY {
+            let mut data = [0u8; INLINE_CAPACITY];
+            let self_bytes = self.as_bytes();
+            data[..self_bytes.len()].copy_from_slice(self_bytes);
+            data[self_bytes.len()..total_len].copy_from_slice(rhs.as_bytes());
+            return CheetahString {
+                inner: InnerString::Inline {
+                    len: total_len as u8,
+                    data,
+                },
+            };
+        }
+
+        // Slow path: allocate for long result
+        let mut result = String::with_capacity(total_len);
         result.push_str(self.as_str());
         result.push_str(rhs.as_str());
         CheetahString::from_string(result)
@@ -879,7 +1032,24 @@ impl std::ops::Add<String> for CheetahString {
     /// ```
     #[inline]
     fn add(self, rhs: String) -> Self::Output {
-        let mut result = String::with_capacity(self.len() + rhs.len());
+        let total_len = self.len() + rhs.len();
+
+        // Fast path: result fits in inline storage
+        if total_len <= INLINE_CAPACITY {
+            let mut data = [0u8; INLINE_CAPACITY];
+            let self_bytes = self.as_bytes();
+            data[..self_bytes.len()].copy_from_slice(self_bytes);
+            data[self_bytes.len()..total_len].copy_from_slice(rhs.as_bytes());
+            return CheetahString {
+                inner: InnerString::Inline {
+                    len: total_len as u8,
+                    data,
+                },
+            };
+        }
+
+        // Slow path: allocate for long result
+        let mut result = String::with_capacity(total_len);
         result.push_str(self.as_str());
         result.push_str(&rhs);
         CheetahString::from_string(result)
@@ -900,7 +1070,29 @@ impl std::ops::AddAssign<&str> for CheetahString {
     /// ```
     #[inline]
     fn add_assign(&mut self, rhs: &str) {
-        let mut result = String::with_capacity(self.len() + rhs.len());
+        let total_len = self.len() + rhs.len();
+
+        match &mut self.inner {
+            // Fast path 1: Both self and result fit in inline storage
+            InnerString::Inline { len, data } if total_len <= INLINE_CAPACITY => {
+                // Mutate inline buffer directly
+                data[*len as usize..total_len].copy_from_slice(rhs.as_bytes());
+                *len = total_len as u8;
+                return;
+            }
+            // Fast path 2: Self is unique Arc<String>, mutate in-place
+            InnerString::ArcString(arc) if Arc::strong_count(arc) == 1 => {
+                // SAFETY: strong_count == 1 guarantees exclusive access
+                if let Some(s) = Arc::get_mut(arc) {
+                    s.push_str(rhs);
+                    return;
+                }
+            }
+            _ => {}
+        }
+
+        // Slow path: allocate new string
+        let mut result = String::with_capacity(total_len);
         result.push_str(self.as_str());
         result.push_str(rhs);
         *self = CheetahString::from_string(result);
@@ -922,7 +1114,29 @@ impl std::ops::AddAssign<&CheetahString> for CheetahString {
     /// ```
     #[inline]
     fn add_assign(&mut self, rhs: &CheetahString) {
-        let mut result = String::with_capacity(self.len() + rhs.len());
+        let total_len = self.len() + rhs.len();
+
+        match &mut self.inner {
+            // Fast path 1: Both self and result fit in inline storage
+            InnerString::Inline { len, data } if total_len <= INLINE_CAPACITY => {
+                // Mutate inline buffer directly
+                data[*len as usize..total_len].copy_from_slice(rhs.as_bytes());
+                *len = total_len as u8;
+                return;
+            }
+            // Fast path 2: Self is unique Arc<String>, mutate in-place
+            InnerString::ArcString(arc) if Arc::strong_count(arc) == 1 => {
+                // SAFETY: strong_count == 1 guarantees exclusive access
+                if let Some(s) = Arc::get_mut(arc) {
+                    s.push_str(rhs.as_str());
+                    return;
+                }
+            }
+            _ => {}
+        }
+
+        // Slow path: allocate new string
+        let mut result = String::with_capacity(total_len);
         result.push_str(self.as_str());
         result.push_str(rhs.as_str());
         *self = CheetahString::from_string(result);
@@ -940,7 +1154,8 @@ const INLINE_CAPACITY: usize = 23;
 ///
 /// * `Inline` - Inline storage for strings <= 23 bytes (zero heap allocations).
 /// * `StaticStr(&'static str)` - A static string slice (zero heap allocations).
-/// * `ArcString(Arc<String>)` - A reference-counted string (one heap allocation).
+/// * `ArcStr(Arc<str>)` - A reference-counted string slice (single heap allocation, optimized).
+/// * `ArcString(Arc<String>)` - A reference-counted string (for backwards compatibility).
 /// * `ArcVecString(Arc<Vec<u8>>)` - A reference-counted byte vector.
 /// * `Bytes(bytes::Bytes)` - A byte buffer (available when the "bytes" feature is enabled).
 #[derive(Clone)]
@@ -953,7 +1168,11 @@ pub(super) enum InnerString {
     },
     /// Static string slice with 'static lifetime.
     StaticStr(&'static str),
+    /// Reference-counted string slice (single heap allocation).
+    /// Preferred over ArcString for long strings created from owned data.
+    ArcStr(Arc<str>),
     /// Reference-counted heap-allocated string.
+    /// Kept for backwards compatibility and when Arc<String> is explicitly provided.
     ArcString(Arc<String>),
     /// Reference-counted heap-allocated byte vector.
     ArcVecString(Arc<Vec<u8>>),
