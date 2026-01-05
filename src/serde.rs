@@ -14,8 +14,9 @@ impl Serialize for CheetahString {
                 let s = unsafe { std::str::from_utf8_unchecked(&data[..*len as usize]) };
                 serializer.serialize_str(s)
             }
-            InnerString::ArcString(s) => serializer.serialize_str(s.as_str()),
             InnerString::StaticStr(s) => serializer.serialize_str(s),
+            InnerString::ArcStr(s) => serializer.serialize_str(s.as_ref()),
+            InnerString::ArcString(s) => serializer.serialize_str(s.as_str()),
             InnerString::ArcVecString(s) => serializer.serialize_bytes(s),
             #[cfg(feature = "bytes")]
             InnerString::Bytes(bytes) => serializer.serialize_bytes(bytes.as_ref()),
