@@ -468,6 +468,22 @@ impl CheetahString {
         self.as_str().starts_with(pat.as_ref())
     }
 
+    /// Returns `true` if the string starts with the given character.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert!(s.starts_with_char('h'));
+    /// assert!(!s.starts_with_char('w'));
+    /// ```
+    #[inline]
+    pub fn starts_with_char(&self, pat: char) -> bool {
+        self.as_str().starts_with(pat)
+    }
+
     /// Returns `true` if the string ends with the given pattern.
     ///
     /// # Examples
@@ -484,6 +500,22 @@ impl CheetahString {
         self.as_str().ends_with(pat.as_ref())
     }
 
+    /// Returns `true` if the string ends with the given character.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert!(s.ends_with_char('d'));
+    /// assert!(!s.ends_with_char('h'));
+    /// ```
+    #[inline]
+    pub fn ends_with_char(&self, pat: char) -> bool {
+        self.as_str().ends_with(pat)
+    }
+
     /// Returns `true` if the string contains the given pattern.
     ///
     /// # Examples
@@ -498,6 +530,22 @@ impl CheetahString {
     #[inline]
     pub fn contains<P: AsRef<str>>(&self, pat: P) -> bool {
         self.as_str().contains(pat.as_ref())
+    }
+
+    /// Returns `true` if the string contains the given character.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert!(s.contains_char('o'));
+    /// assert!(!s.contains_char('x'));
+    /// ```
+    #[inline]
+    pub fn contains_char(&self, pat: char) -> bool {
+        self.as_str().contains(pat)
     }
 
     /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
