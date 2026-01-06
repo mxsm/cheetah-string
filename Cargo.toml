@@ -23,6 +23,7 @@ default = ["std"]
 std = []
 serde = ["serde/alloc"]
 bytes = []
+simd = []
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -30,4 +31,8 @@ criterion = { version = "0.5", features = ["html_reports"] }
 
 [[bench]]
 name = "cheetah"
+harness = false
+
+[[bench]]
+name = "simd"
 harness = false

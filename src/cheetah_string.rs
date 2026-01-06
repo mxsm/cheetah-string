@@ -454,6 +454,9 @@ impl CheetahString {
 
     /// Returns `true` if the string starts with the given pattern.
     ///
+    /// When the `simd` feature is enabled, this method uses SIMD instructions
+    /// for improved performance on longer patterns.
+    ///
     /// # Examples
     ///
     /// ```
@@ -468,7 +471,16 @@ impl CheetahString {
     pub fn starts_with<P: StrPattern>(&self, pat: P) -> bool {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().starts_with(c),
-            StrPatternImpl::Str(s) => self.as_str().starts_with(s),
+            StrPatternImpl::Str(s) => {
+                #[cfg(feature = "simd")]
+                {
+                    crate::simd::starts_with_bytes(self.as_bytes(), s.as_bytes())
+                }
+                #[cfg(not(feature = "simd"))]
+                {
+                    self.as_str().starts_with(s)
+                }
+            }
         }
     }
 
@@ -490,6 +502,9 @@ impl CheetahString {
 
     /// Returns `true` if the string ends with the given pattern.
     ///
+    /// When the `simd` feature is enabled, this method uses SIMD instructions
+    /// for improved performance on longer patterns.
+    ///
     /// # Examples
     ///
     /// ```
@@ -504,7 +519,16 @@ impl CheetahString {
     pub fn ends_with<P: StrPattern>(&self, pat: P) -> bool {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().ends_with(c),
-            StrPatternImpl::Str(s) => self.as_str().ends_with(s),
+            StrPatternImpl::Str(s) => {
+                #[cfg(feature = "simd")]
+                {
+                    crate::simd::ends_with_bytes(self.as_bytes(), s.as_bytes())
+                }
+                #[cfg(not(feature = "simd"))]
+                {
+                    self.as_str().ends_with(s)
+                }
+            }
         }
     }
 
@@ -526,6 +550,9 @@ impl CheetahString {
 
     /// Returns `true` if the string contains the given pattern.
     ///
+    /// When the `simd` feature is enabled, this method uses SIMD instructions
+    /// for improved performance on longer patterns.
+    ///
     /// # Examples
     ///
     /// ```
@@ -540,7 +567,16 @@ impl CheetahString {
     pub fn contains<P: StrPattern>(&self, pat: P) -> bool {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().contains(c),
-            StrPatternImpl::Str(s) => self.as_str().contains(s),
+            StrPatternImpl::Str(s) => {
+                #[cfg(feature = "simd")]
+                {
+                    crate::simd::find_bytes(self.as_bytes(), s.as_bytes()).is_some()
+                }
+                #[cfg(not(feature = "simd"))]
+                {
+                    self.as_str().contains(s)
+                }
+            }
         }
     }
 
@@ -562,6 +598,9 @@ impl CheetahString {
 
     /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
     ///
+    /// When the `simd` feature is enabled, this method uses SIMD instructions
+    /// for improved performance on longer patterns.
+    ///
     /// # Examples
     ///
     /// ```
@@ -573,7 +612,15 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn find<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
-        self.as_str().find(pat.as_ref())
+        let pat = pat.as_ref();
+        #[cfg(feature = "simd")]
+        {
+            crate::simd::find_bytes(self.as_bytes(), pat.as_bytes())
+        }
+        #[cfg(not(feature = "simd"))]
+        {
+            self.as_str().find(pat)
+        }
     }
 
     /// Returns the byte index of the last occurrence of the pattern, or `None` if not found.
@@ -903,21 +950,42 @@ impl CheetahString {
 impl PartialEq for CheetahString {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.as_str() == other.as_str()
+        #[cfg(feature = "simd")]
+        {
+            crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
+        }
+        #[cfg(not(feature = "simd"))]
+        {
+            self.as_str() == other.as_str()
+        }
     }
 }
 
 impl PartialEq<str> for CheetahString {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        self.as_str() == other
+        #[cfg(feature = "simd")]
+        {
+            crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
+        }
+        #[cfg(not(feature = "simd"))]
+        {
+            self.as_str() == other
+        }
     }
 }
 
 impl PartialEq<String> for CheetahString {
     #[inline]
     fn eq(&self, other: &String) -> bool {
-        self.as_str() == other.as_str()
+        #[cfg(feature = "simd")]
+        {
+            crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
+        }
+        #[cfg(not(feature = "simd"))]
+        {
+            self.as_str() == other.as_str()
+        }
     }
 }
 
