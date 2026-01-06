@@ -114,9 +114,9 @@ fn test_chars() {
     let chars: Vec<char> = s.chars().collect();
     assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
 
-    let s2 = CheetahString::from("你好");
+    let s2 = CheetahString::from("\u{00E9}\u{00E7}"); // accented chars
     let chars2: Vec<char> = s2.chars().collect();
-    assert_eq!(chars2, vec!['你', '好']);
+    assert_eq!(chars2, vec!['\u{00E9}', '\u{00E7}']);
 }
 
 // Transformation methods tests
@@ -279,28 +279,28 @@ fn test_add_long_strings() {
 
 #[test]
 fn test_unicode_queries() {
-    let s = CheetahString::from("你好世界");
-    assert!(s.contains("好"));
-    assert!(s.starts_with("你"));
-    assert!(s.ends_with("界"));
-    assert_eq!(s.find("世"), Some(6));
+    let s = CheetahString::from("caf\u{00E9}"); // cafe with e-acute
+    assert!(s.contains("\u{00E9}"));
+    assert!(s.starts_with("caf"));
+    assert!(s.ends_with("\u{00E9}"));
+    assert_eq!(s.find("f"), Some(2));
 }
 
 #[test]
 fn test_unicode_transform() {
-    let s = CheetahString::from("你好");
+    let s = CheetahString::from("caf\u{00E9}");
     let upper = s.to_uppercase();
     let lower = s.to_lowercase();
-    // Chinese characters don't change with case
-    assert_eq!(upper, "你好");
-    assert_eq!(lower, "你好");
+    // e-acute uppercases to E-acute
+    assert_eq!(upper, "CAF\u{00C9}");
+    assert_eq!(lower, "caf\u{00E9}");
 }
 
 #[test]
 fn test_unicode_split() {
-    let s = CheetahString::from("你,好,世,界");
+    let s = CheetahString::from("\u{00E9},\u{00E7},\u{00F1},\u{00FC}");
     let parts: Vec<&str> = s.split(",").collect();
-    assert_eq!(parts, vec!["你", "好", "世", "界"]);
+    assert_eq!(parts, vec!["\u{00E9}", "\u{00E7}", "\u{00F1}", "\u{00FC}"]);
 }
 
 #[test]

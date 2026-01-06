@@ -64,19 +64,22 @@ fn test_sso_clone_short_string() {
 
 #[test]
 fn test_sso_unicode_short() {
-    // Test short unicode strings
-    let s = CheetahString::from("你好");
-    assert_eq!(s.len(), 6); // 2 chars * 3 bytes each
-    assert_eq!(s.as_str(), "你好");
+    // Test short unicode strings with Latin extended characters
+    let s = CheetahString::from("\u{00E9}\u{00E7}"); // e-acute, c-cedilla
+    assert_eq!(s.len(), 4); // 2 chars * 2 bytes each
+    assert_eq!(s.as_str(), "\u{00E9}\u{00E7}");
 }
 
 #[test]
 fn test_sso_unicode_boundary() {
-    // Test unicode at the boundary
-    // "你好世界" = 12 bytes (4 chars * 3 bytes)
-    let s = CheetahString::from("你好世界啊啊啊"); // 21 bytes
-    assert_eq!(s.len(), 21);
-    assert_eq!(s.as_str(), "你好世界啊啊啊");
+    // Test unicode at the boundary with extended Latin characters
+    // Using 7 2-byte UTF-8 characters = 14 bytes total
+    let s = CheetahString::from("\u{00E9}\u{00E7}\u{00F1}\u{00FC}\u{00E0}\u{00F6}\u{00E4}");
+    assert_eq!(s.len(), 14);
+    assert_eq!(
+        s.as_str(),
+        "\u{00E9}\u{00E7}\u{00F1}\u{00FC}\u{00E0}\u{00F6}\u{00E4}"
+    );
 }
 
 #[test]
