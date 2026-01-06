@@ -21,7 +21,7 @@
 //! To enable SIMD acceleration:
 //! ```toml
 //! [dependencies]
-//! cheetah-string = { version = "0.1", features = ["simd"] }
+//! cheetah-string = { version = "1.0.0", features = ["simd"] }  
 //! ```
 //!
 //! # Examples
@@ -62,7 +62,7 @@ mod error;
 #[cfg(feature = "serde")]
 mod serde;
 
-#[cfg(feature = "simd")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 mod simd;
 
 pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, SplitWrapper, StrPattern};

@@ -4,7 +4,7 @@
 //! when the `simd` feature is enabled. It automatically falls back to
 //! scalar implementations when SIMD is not available or for small inputs.
 
-#[cfg(feature = "simd")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 use core::arch::x86_64::*;
 
 /// Minimum length threshold for using SIMD operations
