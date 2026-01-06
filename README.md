@@ -31,6 +31,7 @@ CheetahString is a versatile string type that goes beyond the standard library's
 - **⚡ Performance Focused**
   - Optimized for common string operations
   - Reduced memory allocations via intelligent internal representation
+  - Optional SIMD acceleration for string matching operations (x86_64 SSE2)
   - Benchmarked against standard library types
 
 - **🛡️ Safe & Correct**
@@ -44,20 +45,21 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-cheetah-string = "0.1"
+cheetah-string = "1.0.0"
 ```
 
 ### Optional Features
 
 ```toml
 [dependencies]
-cheetah-string = { version = "0.1", features = ["bytes", "serde"] }
+cheetah-string = { version = "1.0.0", features = ["bytes", "serde", "simd"] }
 ```
 
 Available features:
 - `std` (default): Enable standard library support
 - `bytes`: Integration with the `bytes` crate
 - `serde`: Serialization support via serde
+- `simd`: SIMD-accelerated string operations (x86_64 SSE2)
 
 ## 🚀 Quick Start
 
@@ -74,8 +76,10 @@ let small = CheetahString::from("short");  // Stored inline!
 
 // String operations
 let s = CheetahString::from("Hello, World!");
-assert!(s.starts_with("Hello"));
+assert!(s.starts_with("Hello"));  // Supports &str
+assert!(s.starts_with('H'));      // Also supports char
 assert!(s.contains("World"));
+assert!(s.contains('W'));
 assert_eq!(s.to_lowercase(), "hello, world!");
 
 // Concatenation
@@ -101,10 +105,14 @@ CheetahString is designed with performance in mind:
 - **Small String Optimization (SSO)**: Strings up to 23 bytes are stored inline without heap allocation
 - **Efficient Sharing**: Large strings use `Arc<str>` for cheap cloning
 - **Optimized Operations**: Common operations like concatenation have fast-path implementations
+- **SIMD Acceleration** (with `simd` feature): String matching operations (`starts_with`, `ends_with`, `contains`, `find`, equality comparisons) are accelerated using SSE2 SIMD instructions on x86_64 platforms. The implementation automatically falls back to scalar code for small inputs or when SIMD is not available.
 
 Run benchmarks:
 ```bash
 cargo bench
+
+# With SIMD feature
+cargo bench --features simd
 ```
 
 ## 🔍 Internal Representation
@@ -131,7 +139,7 @@ CheetahString intelligently chooses the most efficient storage:
 
 ### Query Methods
 - `len()`, `is_empty()`, `as_str()`, `as_bytes()`
-- `starts_with()`, `ends_with()`, `contains()`
+- `starts_with()`, `ends_with()`, `contains()` - Support both `&str` and `char` patterns
 - `find()`, `rfind()`
 
 ### Transformation
@@ -141,8 +149,8 @@ CheetahString intelligently chooses the most efficient storage:
 - `substring()`, `repeat()`
 
 ### Iteration
-- `chars()` - Iterate over characters
-- `split()` - Split by pattern
+- `chars()` - Iterate over characters (double-ended iterator)
+- `split()` - Split by pattern (supports `&str` and `char`)
 - `lines()` - Iterate over lines
 
 ### Mutation
