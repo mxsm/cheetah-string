@@ -1,4 +1,4 @@
-#![cfg(feature = "simd")]
+#![cfg(all(feature = "simd", target_arch = "x86_64"))]
 
 use cheetah_string::CheetahString;
 
