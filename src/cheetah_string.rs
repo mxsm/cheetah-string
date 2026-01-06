@@ -472,11 +472,11 @@ impl CheetahString {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().starts_with(c),
             StrPatternImpl::Str(s) => {
-                #[cfg(feature = "simd")]
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 {
                     crate::simd::starts_with_bytes(self.as_bytes(), s.as_bytes())
                 }
-                #[cfg(not(feature = "simd"))]
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
                 {
                     self.as_str().starts_with(s)
                 }
@@ -520,11 +520,11 @@ impl CheetahString {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().ends_with(c),
             StrPatternImpl::Str(s) => {
-                #[cfg(feature = "simd")]
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 {
                     crate::simd::ends_with_bytes(self.as_bytes(), s.as_bytes())
                 }
-                #[cfg(not(feature = "simd"))]
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
                 {
                     self.as_str().ends_with(s)
                 }
@@ -568,11 +568,11 @@ impl CheetahString {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().contains(c),
             StrPatternImpl::Str(s) => {
-                #[cfg(feature = "simd")]
+                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 {
                     crate::simd::find_bytes(self.as_bytes(), s.as_bytes()).is_some()
                 }
-                #[cfg(not(feature = "simd"))]
+                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
                 {
                     self.as_str().contains(s)
                 }
@@ -613,11 +613,11 @@ impl CheetahString {
     #[inline]
     pub fn find<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
         let pat = pat.as_ref();
-        #[cfg(feature = "simd")]
+        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
         {
             crate::simd::find_bytes(self.as_bytes(), pat.as_bytes())
         }
-        #[cfg(not(feature = "simd"))]
+        #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
         {
             self.as_str().find(pat)
         }
@@ -950,11 +950,11 @@ impl CheetahString {
 impl PartialEq for CheetahString {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(feature = "simd")]
+        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
         {
             crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
         }
-        #[cfg(not(feature = "simd"))]
+        #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
         {
             self.as_str() == other.as_str()
         }
@@ -964,11 +964,11 @@ impl PartialEq for CheetahString {
 impl PartialEq<str> for CheetahString {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        #[cfg(feature = "simd")]
+        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
         {
             crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
         }
-        #[cfg(not(feature = "simd"))]
+        #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
         {
             self.as_str() == other
         }
@@ -978,11 +978,11 @@ impl PartialEq<str> for CheetahString {
 impl PartialEq<String> for CheetahString {
     #[inline]
     fn eq(&self, other: &String) -> bool {
-        #[cfg(feature = "simd")]
+        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
         {
             crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
         }
-        #[cfg(not(feature = "simd"))]
+        #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
         {
             self.as_str() == other.as_str()
         }
