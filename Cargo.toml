@@ -1,6 +1,6 @@
 [package]
 name = "cheetah-string"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["mxsm <mxsm@apache.org>"]
 edition = "2021"
 homepage = "https://github.com/mxsm/cheetah-string"
