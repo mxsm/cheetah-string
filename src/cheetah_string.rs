@@ -462,10 +462,14 @@ impl CheetahString {
     /// let s = CheetahString::from("hello world");
     /// assert!(s.starts_with("hello"));
     /// assert!(!s.starts_with("world"));
+    /// assert!(s.starts_with('h'));
     /// ```
     #[inline]
-    pub fn starts_with<P: AsRef<str>>(&self, pat: P) -> bool {
-        self.as_str().starts_with(pat.as_ref())
+    pub fn starts_with<P: StrPattern>(&self, pat: P) -> bool {
+        match pat.as_str_pattern() {
+            StrPatternImpl::Char(c) => self.as_str().starts_with(c),
+            StrPatternImpl::Str(s) => self.as_str().starts_with(s),
+        }
     }
 
     /// Returns `true` if the string starts with the given character.
@@ -494,10 +498,14 @@ impl CheetahString {
     /// let s = CheetahString::from("hello world");
     /// assert!(s.ends_with("world"));
     /// assert!(!s.ends_with("hello"));
+    /// assert!(s.ends_with('d'));
     /// ```
     #[inline]
-    pub fn ends_with<P: AsRef<str>>(&self, pat: P) -> bool {
-        self.as_str().ends_with(pat.as_ref())
+    pub fn ends_with<P: StrPattern>(&self, pat: P) -> bool {
+        match pat.as_str_pattern() {
+            StrPatternImpl::Char(c) => self.as_str().ends_with(c),
+            StrPatternImpl::Str(s) => self.as_str().ends_with(s),
+        }
     }
 
     /// Returns `true` if the string ends with the given character.
@@ -526,10 +534,14 @@ impl CheetahString {
     /// let s = CheetahString::from("hello world");
     /// assert!(s.contains("llo"));
     /// assert!(!s.contains("xyz"));
+    /// assert!(s.contains('o'));
     /// ```
     #[inline]
-    pub fn contains<P: AsRef<str>>(&self, pat: P) -> bool {
-        self.as_str().contains(pat.as_ref())
+    pub fn contains<P: StrPattern>(&self, pat: P) -> bool {
+        match pat.as_str_pattern() {
+            StrPatternImpl::Char(c) => self.as_str().contains(c),
+            StrPatternImpl::Str(s) => self.as_str().contains(s),
+        }
     }
 
     /// Returns `true` if the string contains the given character.
@@ -634,10 +646,15 @@ impl CheetahString {
     /// let s = CheetahString::from("a,b,c");
     /// let parts: Vec<&str> = s.split(",").collect();
     /// assert_eq!(parts, vec!["a", "b", "c"]);
+    /// let parts2: Vec<&str> = s.split(',').collect();
+    /// assert_eq!(parts2, vec!["a", "b", "c"]);
     /// ```
     #[inline]
-    pub fn split<'a>(&'a self, pat: &'a str) -> impl Iterator<Item = &'a str> {
-        self.as_str().split(pat)
+    pub fn split<'a, P>(&'a self, pat: P) -> SplitWrapper<'a>
+    where
+        P: SplitPattern<'a>,
+    {
+        pat.split_str(self.as_str())
     }
 
     /// Returns an iterator over the lines of the string.
@@ -666,9 +683,11 @@ impl CheetahString {
     /// let s = CheetahString::from("hello");
     /// let chars: Vec<char> = s.chars().collect();
     /// assert_eq!(chars, vec!['h', 'e', 'l', 'l', 'o']);
+    /// let reversed: Vec<char> = s.chars().rev().collect();
+    /// assert_eq!(reversed, vec!['o', 'l', 'l', 'e', 'h']);
     /// ```
     #[inline]
-    pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
+    pub fn chars(&self) -> std::str::Chars<'_> {
         self.as_str().chars()
     }
 
@@ -1227,4 +1246,176 @@ pub(super) enum InnerString {
     /// Bytes type integration (requires "bytes" feature).
     #[cfg(feature = "bytes")]
     Bytes(bytes::Bytes),
+}
+
+// Sealed trait pattern to support both &str and char in starts_with/ends_with/contains
+mod private {
+    pub trait Sealed {}
+    impl Sealed for char {}
+    impl Sealed for &str {}
+    impl Sealed for &String {}
+
+    pub trait SplitSealed {}
+    impl SplitSealed for char {}
+    impl SplitSealed for &str {}
+}
+
+/// A pattern that can be used with `starts_with` and `ends_with` methods.
+pub trait StrPattern: private::Sealed {
+    #[doc(hidden)]
+    fn as_str_pattern(&self) -> StrPatternImpl<'_>;
+}
+
+#[doc(hidden)]
+pub enum StrPatternImpl<'a> {
+    Char(char),
+    Str(&'a str),
+}
+
+impl StrPattern for char {
+    fn as_str_pattern(&self) -> StrPatternImpl<'_> {
+        StrPatternImpl::Char(*self)
+    }
+}
+
+impl StrPattern for &str {
+    fn as_str_pattern(&self) -> StrPatternImpl<'_> {
+        StrPatternImpl::Str(self)
+    }
+}
+
+impl StrPattern for &String {
+    fn as_str_pattern(&self) -> StrPatternImpl<'_> {
+        StrPatternImpl::Str(self.as_str())
+    }
+}
+
+/// A pattern that can be used with `split` method.
+pub trait SplitPattern<'a>: private::SplitSealed {
+    #[doc(hidden)]
+    fn split_str(self, s: &'a str) -> SplitWrapper<'a>;
+}
+
+impl SplitPattern<'_> for char {
+    fn split_str(self, s: &str) -> SplitWrapper<'_> {
+        SplitWrapper::Char(s.split(self))
+    }
+}
+
+impl<'a> SplitPattern<'a> for &'a str {
+    fn split_str(self, s: &'a str) -> SplitWrapper<'a> {
+        let empty_pattern_state = if self.is_empty() {
+            Some(EmptyPatternState {
+                chars: s.char_indices(),
+                original: s,
+                started: false,
+            })
+        } else {
+            None
+        };
+
+        SplitWrapper::Str(SplitStr {
+            string: s,
+            pattern: self,
+            finished: false,
+            empty_pattern_state,
+        })
+    }
+}
+
+/// Helper struct for splitting strings by a string pattern
+pub struct SplitStr<'a> {
+    string: &'a str,
+    pattern: &'a str,
+    finished: bool,
+    /// For empty pattern, we need to iterate over chars
+    empty_pattern_state: Option<EmptyPatternState<'a>>,
+}
+
+#[derive(Clone)]
+struct EmptyPatternState<'a> {
+    chars: std::str::CharIndices<'a>,
+    original: &'a str,
+    started: bool,
+}
+
+impl<'a> Iterator for SplitStr<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.finished {
+            return None;
+        }
+
+        // Handle empty pattern case (split between every character)
+        if self.pattern.is_empty() {
+            if let Some(ref mut state) = self.empty_pattern_state {
+                if !state.started {
+                    state.started = true;
+                    // First element is always empty string before first char
+                    return Some("");
+                }
+
+                match state.chars.next() {
+                    Some((pos, ch)) => {
+                        let char_end = pos + ch.len_utf8();
+                        let result = &state.original[pos..char_end];
+                        Some(result)
+                    }
+                    None => {
+                        self.finished = true;
+                        // Last element is empty string after last char
+                        Some("")
+                    }
+                }
+            } else {
+                unreachable!("empty_pattern_state should be Some for empty pattern")
+            }
+        } else {
+            // Normal case: non-empty pattern
+            match self.string.find(self.pattern) {
+                Some(pos) => {
+                    let result = &self.string[..pos];
+                    self.string = &self.string[pos + self.pattern.len()..];
+                    Some(result)
+                }
+                None => {
+                    self.finished = true;
+                    Some(self.string)
+                }
+            }
+        }
+    }
+}
+
+/// Wrapper for split iterator that supports both char and str patterns
+pub enum SplitWrapper<'a> {
+    #[doc(hidden)]
+    Char(std::str::Split<'a, char>),
+    #[doc(hidden)]
+    Str(SplitStr<'a>),
+}
+
+impl<'a> Iterator for SplitWrapper<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            SplitWrapper::Char(iter) => iter.next(),
+            SplitWrapper::Str(iter) => iter.next(),
+        }
+    }
+}
+
+impl<'a> DoubleEndedIterator for SplitWrapper<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        match self {
+            SplitWrapper::Char(iter) => iter.next_back(),
+            SplitWrapper::Str(_) => {
+                // String pattern split doesn't support reverse iteration
+                // This is consistent with std::str::Split<&str>
+                panic!("split with string pattern does not support reverse iteration")
+            }
+        }
+    }
 }

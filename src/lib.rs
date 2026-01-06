@@ -24,5 +24,5 @@ mod error;
 #[cfg(feature = "serde")]
 mod serde;
 
-pub use cheetah_string::CheetahString;
+pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, SplitWrapper, StrPattern};
 pub use error::{Error, Result};

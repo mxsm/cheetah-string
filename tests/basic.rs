@@ -45,9 +45,9 @@ fn test_from_char() {
     assert_eq!(s, "a");
     assert_eq!(s.len(), 1);
 
-    let s = CheetahString::from('你');
-    assert_eq!(s, "你");
-    assert_eq!(s.len(), 3); // UTF-8 encoding is 3 bytes
+    let s = CheetahString::from('\u{00E9}'); // e-acute
+    assert_eq!(s, "\u{00E9}");
+    assert_eq!(s.len(), 2); // UTF-8 encoding is 2 bytes
 }
 
 #[test]
@@ -233,9 +233,9 @@ fn test_try_from_vec_method() {
 
 #[test]
 fn test_unicode() {
-    let s = CheetahString::from("你好世界");
-    assert_eq!(s, "你好世界");
-    assert_eq!(s.len(), 12); // 4 chars * 3 bytes each
+    let s = CheetahString::from("\u{00E9}\u{00E7}\u{00F1}\u{00FC}"); // accented chars
+    assert_eq!(s, "\u{00E9}\u{00E7}\u{00F1}\u{00FC}");
+    assert_eq!(s.len(), 8); // 4 chars * 2 bytes each
 }
 
 #[test]
