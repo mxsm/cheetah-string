@@ -17,7 +17,7 @@ pub(crate) fn eq_bytes(a: &[u8], b: &[u8]) -> bool {
         return false;
     }
 
-    #[cfg(feature = "simd")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("sse2") && a.len() >= SIMD_THRESHOLD {
             return unsafe { eq_bytes_sse2(a, b) };
@@ -39,7 +39,7 @@ pub(crate) fn starts_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         return true;
     }
 
-    #[cfg(feature = "simd")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("sse2") && needle.len() >= SIMD_THRESHOLD {
             return unsafe { eq_bytes_sse2(&haystack[..needle.len()], needle) };
@@ -61,7 +61,7 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         return true;
     }
 
-    #[cfg(feature = "simd")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("sse2") && needle.len() >= SIMD_THRESHOLD {
             let start = haystack.len() - needle.len();
@@ -84,7 +84,7 @@ pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         return None;
     }
 
-    #[cfg(feature = "simd")]
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
         if is_x86_feature_detected!("sse2")
             && needle.len() >= SIMD_THRESHOLD
@@ -102,7 +102,7 @@ pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 // SIMD implementations for x86_64 with SSE2
 
-#[cfg(feature = "simd")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 #[inline]
 unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
@@ -135,7 +135,7 @@ unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
     true
 }
 
-#[cfg(feature = "simd")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 #[inline]
 unsafe fn find_bytes_sse2(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -178,7 +178,7 @@ unsafe fn find_bytes_sse2(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     None
 }
 
-#[cfg(feature = "simd")]
+#[cfg(all(feature = "simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 #[inline]
 unsafe fn find_byte_sse2(haystack: &[u8], needle: u8) -> Option<usize> {
