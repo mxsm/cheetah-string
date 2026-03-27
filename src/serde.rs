@@ -1,5 +1,9 @@
 use crate::cheetah_string::InnerString;
 use crate::CheetahString;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::fmt;
+use core::str;
 use serde::de::{Error, Unexpected, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -11,7 +15,7 @@ impl Serialize for CheetahString {
         match &self.inner {
             InnerString::Inline { len, data } => {
                 // Safety: InnerString::Inline guarantees that data[0..len] is valid UTF-8
-                let s = unsafe { std::str::from_utf8_unchecked(&data[..*len as usize]) };
+                let s = unsafe { str::from_utf8_unchecked(&data[..*len as usize]) };
                 serializer.serialize_str(s)
             }
             InnerString::StaticStr(s) => serializer.serialize_str(s),
@@ -33,7 +37,7 @@ where
     impl<'a> Visitor<'a> for CheetahStringVisitor {
         type Value = CheetahString;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
             formatter.write_str("a string")
         }
 

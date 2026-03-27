@@ -56,6 +56,8 @@
 //! }
 //! ```
 //!
+extern crate alloc;
+
 mod cheetah_string;
 mod error;
 
