@@ -10,6 +10,20 @@ use core::arch::x86_64::*;
 /// Minimum length threshold for using SIMD operations
 const SIMD_THRESHOLD: usize = 16;
 
+#[cfg(all(feature = "simd", target_arch = "x86_64", feature = "std"))]
+#[inline]
+fn has_sse2() -> bool {
+    std::arch::is_x86_feature_detected!("sse2")
+}
+
+#[cfg(all(feature = "simd", target_arch = "x86_64", not(feature = "std")))]
+#[inline]
+fn has_sse2() -> bool {
+    // SSE2 is part of the x86_64 baseline, so no runtime detection is needed
+    // when building without std support.
+    true
+}
+
 /// Compare two byte slices for equality using SIMD when available
 #[inline]
 pub(crate) fn eq_bytes(a: &[u8], b: &[u8]) -> bool {
@@ -19,7 +33,7 @@ pub(crate) fn eq_bytes(a: &[u8], b: &[u8]) -> bool {
 
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
-        if is_x86_feature_detected!("sse2") && a.len() >= SIMD_THRESHOLD {
+        if has_sse2() && a.len() >= SIMD_THRESHOLD {
             return unsafe { eq_bytes_sse2(a, b) };
         }
     }
@@ -41,7 +55,7 @@ pub(crate) fn starts_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
 
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
-        if is_x86_feature_detected!("sse2") && needle.len() >= SIMD_THRESHOLD {
+        if has_sse2() && needle.len() >= SIMD_THRESHOLD {
             return unsafe { eq_bytes_sse2(&haystack[..needle.len()], needle) };
         }
     }
@@ -63,7 +77,7 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
 
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
-        if is_x86_feature_detected!("sse2") && needle.len() >= SIMD_THRESHOLD {
+        if has_sse2() && needle.len() >= SIMD_THRESHOLD {
             let start = haystack.len() - needle.len();
             return unsafe { eq_bytes_sse2(&haystack[start..], needle) };
         }
@@ -86,10 +100,7 @@ pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
-        if is_x86_feature_detected!("sse2")
-            && needle.len() >= SIMD_THRESHOLD
-            && haystack.len() >= SIMD_THRESHOLD
-        {
+        if has_sse2() && needle.len() >= SIMD_THRESHOLD && haystack.len() >= SIMD_THRESHOLD {
             return unsafe { find_bytes_sse2(haystack, needle) };
         }
     }

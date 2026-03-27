@@ -305,6 +305,63 @@ fn bench_size_scaling(c: &mut Criterion) {
     group.finish();
 }
 
+// Benchmark: construction and builder hot paths that depend on internal storage choices
+fn bench_internal_hot_paths(c: &mut Criterion) {
+    let mut group = c.benchmark_group("internal_hot_paths");
+
+    let segments = ["alpha", "-", "beta", "-", "gamma", "-", "delta"];
+    group.bench_function("CheetahString::with_capacity+push_str", |b| {
+        b.iter(|| {
+            let mut value = CheetahString::with_capacity(64);
+            for segment in segments {
+                value.push_str(segment);
+            }
+            black_box(value)
+        })
+    });
+
+    group.bench_function("CheetahString::new+push_str", |b| {
+        b.iter(|| {
+            let mut value = CheetahString::new();
+            for segment in segments {
+                value.push_str(segment);
+            }
+            black_box(value)
+        })
+    });
+
+    group.bench_function("String::with_capacity+push_str", |b| {
+        b.iter(|| {
+            let mut value = String::with_capacity(64);
+            for segment in segments {
+                value.push_str(segment);
+            }
+            black_box(value)
+        })
+    });
+
+    let long = "a".repeat(256);
+    group.bench_function("CheetahString::from(&str 256B)", |b| {
+        b.iter(|| black_box(CheetahString::from(long.as_str())))
+    });
+
+    group.bench_function("CheetahString::from_string(256B)", |b| {
+        b.iter(|| black_box(CheetahString::from_string(long.clone())))
+    });
+
+    let short_bytes = b"hello".to_vec();
+    group.bench_function("CheetahString::try_from_vec(5B)", |b| {
+        b.iter(|| black_box(CheetahString::try_from_vec(short_bytes.clone()).unwrap()))
+    });
+
+    let long_bytes = vec![b'a'; 256];
+    group.bench_function("CheetahString::from(Vec<u8> 256B)", |b| {
+        b.iter(|| black_box(CheetahString::from(long_bytes.clone())))
+    });
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_creation,
@@ -313,6 +370,7 @@ criterion_group!(
     bench_transform,
     bench_concat,
     bench_iteration,
-    bench_size_scaling
+    bench_size_scaling,
+    bench_internal_hot_paths
 );
 criterion_main!(benches);

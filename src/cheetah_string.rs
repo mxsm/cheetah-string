@@ -1,12 +1,13 @@
-use core::fmt;
-use core::str::Utf8Error;
-use std::borrow::{Borrow, Cow};
-use std::cmp::Ordering;
-use std::fmt::Display;
-use std::hash::Hash;
-use std::ops::Deref;
-use std::str::FromStr;
-use std::sync::Arc;
+use alloc::borrow::Cow;
+use alloc::string::{ParseError, String, ToString};
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::cmp::Ordering;
+use core::fmt::{self, Display};
+use core::hash::{Hash, Hasher};
+use core::ops::{Add, AddAssign, Deref};
+use core::str::{self, FromStr, Utf8Error};
 
 #[derive(Clone)]
 #[repr(transparent)]
@@ -58,12 +59,12 @@ impl From<&[u8]> for CheetahString {
     fn from(b: &[u8]) -> Self {
         // SAFETY: This is unsafe and may cause UB if bytes are not valid UTF-8.
         // This will be deprecated in favor of try_from_bytes in the next version.
-        CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(b) })
+        CheetahString::from_slice(unsafe { str::from_utf8_unchecked(b) })
     }
 }
 
 impl FromStr for CheetahString {
-    type Err = std::string::ParseError;
+    type Err = ParseError;
     #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(CheetahString::from_slice(s))
@@ -80,9 +81,9 @@ impl FromStr for CheetahString {
 impl From<Vec<u8>> for CheetahString {
     #[inline]
     fn from(v: Vec<u8>) -> Self {
-        // SAFETY: This is unsafe and may cause UB if bytes are not valid UTF-8.
-        // This will be deprecated in favor of try_from_vec in the next version.
-        CheetahString::from_slice(unsafe { std::str::from_utf8_unchecked(&v) })
+        // SAFETY: This constructor does not validate UTF-8 and may cause UB
+        // if the bytes are later observed as a string.
+        CheetahString::from_vec(v)
     }
 }
 
@@ -270,8 +271,19 @@ impl CheetahString {
 
     #[inline]
     pub fn from_vec(s: Vec<u8>) -> Self {
-        CheetahString {
-            inner: InnerString::ArcVecString(Arc::new(s)),
+        if s.len() <= INLINE_CAPACITY {
+            let mut data = [0u8; INLINE_CAPACITY];
+            data[..s.len()].copy_from_slice(&s);
+            CheetahString {
+                inner: InnerString::Inline {
+                    len: s.len() as u8,
+                    data,
+                },
+            }
+        } else {
+            CheetahString {
+                inner: InnerString::ArcVecString(Arc::new(s)),
+            }
         }
     }
 
@@ -295,10 +307,8 @@ impl CheetahString {
     /// ```
     pub fn try_from_vec(v: Vec<u8>) -> Result<Self, Utf8Error> {
         // Validate UTF-8
-        std::str::from_utf8(&v)?;
-        Ok(CheetahString {
-            inner: InnerString::ArcVecString(Arc::new(v)),
-        })
+        str::from_utf8(&v)?;
+        Ok(CheetahString::from_vec(v))
     }
 
     /// Creates a `CheetahString` from a byte slice with UTF-8 validation.
@@ -320,7 +330,7 @@ impl CheetahString {
     /// assert!(CheetahString::try_from_bytes(invalid).is_err());
     /// ```
     pub fn try_from_bytes(b: &[u8]) -> Result<Self, Utf8Error> {
-        let s = std::str::from_utf8(b)?;
+        let s = str::from_utf8(b)?;
         Ok(CheetahString::from_slice(s))
     }
 
@@ -344,9 +354,10 @@ impl CheetahString {
                 },
             }
         } else {
-            // Use Arc for long strings
+            // Use Arc<str> for long borrowed strings to avoid the extra String header.
+            let arc_str: Arc<str> = Arc::from(s);
             CheetahString {
-                inner: InnerString::ArcString(Arc::new(s.to_owned())),
+                inner: InnerString::ArcStr(arc_str),
             }
         }
     }
@@ -392,7 +403,7 @@ impl CheetahString {
             InnerString::Inline { len, data } => {
                 // SAFETY: Inline strings are only created from valid UTF-8 sources.
                 // The data is always valid UTF-8 up to len bytes.
-                unsafe { std::str::from_utf8_unchecked(&data[..*len as usize]) }
+                unsafe { str::from_utf8_unchecked(&data[..*len as usize]) }
             }
             InnerString::StaticStr(s) => s,
             InnerString::ArcStr(s) => s.as_ref(),
@@ -400,13 +411,13 @@ impl CheetahString {
             InnerString::ArcVecString(s) => {
                 // SAFETY: ArcVecString is only created from validated UTF-8 sources.
                 // All constructors ensure this invariant is maintained.
-                unsafe { std::str::from_utf8_unchecked(s.as_ref()) }
+                unsafe { str::from_utf8_unchecked(s.as_ref()) }
             }
             #[cfg(feature = "bytes")]
             InnerString::Bytes(b) => {
                 // SAFETY: Bytes variant is only created from validated UTF-8 sources.
                 // The from_bytes constructor ensures this invariant.
-                unsafe { std::str::from_utf8_unchecked(b.as_ref()) }
+                unsafe { str::from_utf8_unchecked(b.as_ref()) }
             }
         }
     }
@@ -734,7 +745,7 @@ impl CheetahString {
     /// assert_eq!(reversed, vec!['o', 'l', 'l', 'e', 'h']);
     /// ```
     #[inline]
-    pub fn chars(&self) -> std::str::Chars<'_> {
+    pub fn chars(&self) -> str::Chars<'_> {
         self.as_str().chars()
     }
 
@@ -857,7 +868,9 @@ impl CheetahString {
         if capacity <= INLINE_CAPACITY {
             CheetahString::empty()
         } else {
-            CheetahString::from_string(String::with_capacity(capacity))
+            CheetahString {
+                inner: InnerString::ArcString(Arc::new(String::with_capacity(capacity))),
+            }
         }
     }
 
@@ -1042,21 +1055,21 @@ impl Ord for CheetahString {
 
 impl Hash for CheetahString {
     #[inline]
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_str().hash(state);
     }
 }
 
 impl Display for CheetahString {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.as_str().fmt(f)
     }
 }
 
-impl std::fmt::Debug for CheetahString {
+impl fmt::Debug for CheetahString {
     #[inline]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(self.as_str(), f)
     }
 }
@@ -1070,7 +1083,7 @@ impl Borrow<str> for CheetahString {
 
 // Add trait implementations for string concatenation
 
-impl std::ops::Add<&str> for CheetahString {
+impl Add<&str> for CheetahString {
     type Output = CheetahString;
 
     /// Concatenates a `CheetahString` with a string slice.
@@ -1110,7 +1123,7 @@ impl std::ops::Add<&str> for CheetahString {
     }
 }
 
-impl std::ops::Add<&CheetahString> for CheetahString {
+impl Add<&CheetahString> for CheetahString {
     type Output = CheetahString;
 
     /// Concatenates two `CheetahString` values.
@@ -1151,7 +1164,7 @@ impl std::ops::Add<&CheetahString> for CheetahString {
     }
 }
 
-impl std::ops::Add<String> for CheetahString {
+impl Add<String> for CheetahString {
     type Output = CheetahString;
 
     /// Concatenates a `CheetahString` with a `String`.
@@ -1191,7 +1204,7 @@ impl std::ops::Add<String> for CheetahString {
     }
 }
 
-impl std::ops::AddAssign<&str> for CheetahString {
+impl AddAssign<&str> for CheetahString {
     /// Appends a string slice to a `CheetahString`.
     ///
     /// # Examples
@@ -1234,7 +1247,7 @@ impl std::ops::AddAssign<&str> for CheetahString {
     }
 }
 
-impl std::ops::AddAssign<&CheetahString> for CheetahString {
+impl AddAssign<&CheetahString> for CheetahString {
     /// Appends a `CheetahString` to another `CheetahString`.
     ///
     /// # Examples
@@ -1318,6 +1331,8 @@ pub(super) enum InnerString {
 
 // Sealed trait pattern to support both &str and char in starts_with/ends_with/contains
 mod private {
+    use alloc::string::String;
+
     pub trait Sealed {}
     impl Sealed for char {}
     impl Sealed for &str {}
@@ -1402,7 +1417,7 @@ pub struct SplitStr<'a> {
 
 #[derive(Clone)]
 struct EmptyPatternState<'a> {
-    chars: std::str::CharIndices<'a>,
+    chars: str::CharIndices<'a>,
     original: &'a str,
     started: bool,
 }
@@ -1459,7 +1474,7 @@ impl<'a> Iterator for SplitStr<'a> {
 /// Wrapper for split iterator that supports both char and str patterns
 pub enum SplitWrapper<'a> {
     #[doc(hidden)]
-    Char(std::str::Split<'a, char>),
+    Char(str::Split<'a, char>),
     #[doc(hidden)]
     Str(SplitStr<'a>),
 }
@@ -1484,6 +1499,73 @@ impl<'a> DoubleEndedIterator for SplitWrapper<'a> {
                 // This is consistent with std::str::Split<&str>
                 panic!("split with string pattern does not support reverse iteration")
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn with_capacity_above_inline_uses_heap_storage() {
+        let s = CheetahString::with_capacity(INLINE_CAPACITY + 8);
+
+        match &s.inner {
+            InnerString::ArcString(inner) => {
+                assert!(inner.capacity() >= INLINE_CAPACITY + 8);
+            }
+            other => panic!(
+                "expected heap-backed storage from with_capacity, got {:?}",
+                core::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn long_borrowed_str_uses_arc_str_storage() {
+        let value = "a".repeat(INLINE_CAPACITY + 1);
+        let s = CheetahString::from_slice(&value);
+
+        match &s.inner {
+            InnerString::ArcStr(inner) => assert_eq!(inner.as_ref(), value.as_str()),
+            other => panic!(
+                "expected ArcStr for long borrowed input, got {:?}",
+                core::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn try_from_vec_short_input_uses_inline_storage() {
+        let s = CheetahString::try_from_vec(b"hello".to_vec()).expect("valid utf-8");
+
+        match &s.inner {
+            InnerString::Inline { len, data } => {
+                assert_eq!(*len as usize, 5);
+                assert_eq!(&data[..5], b"hello");
+            }
+            other => panic!(
+                "expected inline storage for short validated Vec<u8>, got {:?}",
+                core::mem::discriminant(other)
+            ),
+        }
+    }
+
+    #[test]
+    fn long_vec_conversion_uses_arc_vec_storage() {
+        let value = "a".repeat(INLINE_CAPACITY + 1).into_bytes();
+        let s = CheetahString::from(value);
+
+        match &s.inner {
+            InnerString::ArcVecString(inner) => {
+                assert_eq!(inner.len(), INLINE_CAPACITY + 1);
+                assert_eq!(inner.as_slice(), vec![b'a'; INLINE_CAPACITY + 1].as_slice());
+            }
+            other => panic!(
+                "expected ArcVecString for long Vec<u8> conversion, got {:?}",
+                core::mem::discriminant(other)
+            ),
         }
     }
 }
