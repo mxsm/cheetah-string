@@ -1,5 +1,14 @@
 use cheetah_string::CheetahString;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use std::time::Duration;
+
+const SHORT_NEEDLE_CASES: [(&str, &str, &str); 3] = [
+    ("two_bytes", "xy", "zz"),
+    ("four_bytes", "wxyz", "zzzz"),
+    ("eight_bytes", "qrstuvwx", "zzzzzzzz"),
+];
+const SHORT_NEEDLE_SIZES: [usize; 4] = [16, 64, 256, 1024];
+const SHORT_NEEDLE_COMPARE_SIZES: [usize; 2] = [64, 1024];
 
 fn bench_equality(c: &mut Criterion) {
     let mut group = c.benchmark_group("equality");
@@ -152,6 +161,182 @@ fn bench_realistic_workload(c: &mut Criterion) {
     group.finish();
 }
 
+fn bench_contains_short_needles(c: &mut Criterion) {
+    let mut group = c.benchmark_group("contains_short_needle");
+    group.sample_size(20);
+    group.warm_up_time(Duration::from_millis(500));
+    group.measurement_time(Duration::from_secs(2));
+
+    for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
+        for size in SHORT_NEEDLE_SIZES {
+            let prefix_len = size / 2;
+            let suffix_len = size / 2;
+            let haystack = CheetahString::from(format!(
+                "{}{}{}",
+                "a".repeat(prefix_len),
+                needle_match,
+                "a".repeat(suffix_len)
+            ));
+
+            group.throughput(Throughput::Bytes(
+                (prefix_len + suffix_len + needle_match.len()) as u64,
+            ));
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("{label}_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&haystack).contains(black_box(needle_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("{label}_no_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&haystack).contains(black_box(needle_no_match))),
+            );
+        }
+    }
+
+    group.finish();
+}
+
+fn bench_find_short_needles(c: &mut Criterion) {
+    let mut group = c.benchmark_group("find_short_needle");
+    group.sample_size(20);
+    group.warm_up_time(Duration::from_millis(500));
+    group.measurement_time(Duration::from_secs(2));
+
+    for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
+        for size in SHORT_NEEDLE_SIZES {
+            let prefix_len = size / 2;
+            let suffix_len = size / 2;
+            let haystack = CheetahString::from(format!(
+                "{}{}{}",
+                "a".repeat(prefix_len),
+                needle_match,
+                "a".repeat(suffix_len)
+            ));
+
+            group.throughput(Throughput::Bytes(
+                (prefix_len + suffix_len + needle_match.len()) as u64,
+            ));
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("{label}_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&haystack).find(black_box(needle_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("{label}_no_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&haystack).find(black_box(needle_no_match))),
+            );
+        }
+    }
+
+    group.finish();
+}
+
+fn bench_compare_short_needle_contains(c: &mut Criterion) {
+    let mut group = c.benchmark_group("compare_short_needle_contains");
+    group.sample_size(20);
+    group.warm_up_time(Duration::from_millis(500));
+    group.measurement_time(Duration::from_secs(2));
+
+    for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
+        for size in SHORT_NEEDLE_COMPARE_SIZES {
+            let prefix_len = size / 2;
+            let suffix_len = size / 2;
+            let haystack = format!(
+                "{}{}{}",
+                "a".repeat(prefix_len),
+                needle_match,
+                "a".repeat(suffix_len)
+            );
+            let cheetah_haystack = CheetahString::from(haystack.as_str());
+            let string_haystack = haystack;
+
+            group.throughput(Throughput::Bytes(string_haystack.len() as u64));
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("cheetah_{label}_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&cheetah_haystack).contains(black_box(needle_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("string_{label}_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&string_haystack).contains(black_box(needle_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("cheetah_{label}_no_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&cheetah_haystack).contains(black_box(needle_no_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("string_{label}_no_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&string_haystack).contains(black_box(needle_no_match))),
+            );
+        }
+    }
+
+    group.finish();
+}
+
+fn bench_compare_short_needle_find(c: &mut Criterion) {
+    let mut group = c.benchmark_group("compare_short_needle_find");
+    group.sample_size(20);
+    group.warm_up_time(Duration::from_millis(500));
+    group.measurement_time(Duration::from_secs(2));
+
+    for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
+        for size in SHORT_NEEDLE_COMPARE_SIZES {
+            let prefix_len = size / 2;
+            let suffix_len = size / 2;
+            let haystack = format!(
+                "{}{}{}",
+                "a".repeat(prefix_len),
+                needle_match,
+                "a".repeat(suffix_len)
+            );
+            let cheetah_haystack = CheetahString::from(haystack.as_str());
+            let string_haystack = haystack;
+
+            group.throughput(Throughput::Bytes(string_haystack.len() as u64));
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("cheetah_{label}_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&cheetah_haystack).find(black_box(needle_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("string_{label}_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&string_haystack).find(black_box(needle_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("cheetah_{label}_no_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&cheetah_haystack).find(black_box(needle_no_match))),
+            );
+
+            group.bench_with_input(
+                BenchmarkId::new(format!("string_{label}_no_match"), size),
+                &size,
+                |b, _| b.iter(|| black_box(&string_haystack).find(black_box(needle_no_match))),
+            );
+        }
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_equality,
@@ -159,6 +344,10 @@ criterion_group!(
     bench_ends_with,
     bench_contains,
     bench_find,
+    bench_contains_short_needles,
+    bench_find_short_needles,
+    bench_compare_short_needle_contains,
+    bench_compare_short_needle_find,
     bench_realistic_workload
 );
 criterion_main!(benches);

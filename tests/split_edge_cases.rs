@@ -57,7 +57,27 @@ fn test_empty_pattern() {
     let s = CheetahString::from("hello");
     let parts: Vec<&str> = s.split("").collect();
     println!("Empty pattern: {:?}", parts);
-    // Standard library behavior: empty pattern splits between each character
+    assert_eq!(parts, vec!["", "h", "e", "l", "l", "o", ""]);
+
+    let s = CheetahString::from("");
+    let parts: Vec<&str> = s.split("").collect();
+    println!("Empty string with empty pattern: {:?}", parts);
+    assert_eq!(parts, vec!["", ""]);
+}
+
+#[test]
+fn test_string_pattern_consecutive_separators() {
+    let s = CheetahString::from("a::b::::c::");
+    let parts: Vec<&str> = s.split("::").collect();
+    println!("String pattern consecutive: {:?}", parts);
+    assert_eq!(parts, vec!["a", "b", "", "c", ""]);
+}
+
+#[test]
+#[should_panic(expected = "split with string pattern does not support reverse iteration")]
+fn test_single_char_string_pattern_reverse_panics() {
+    let s = CheetahString::from("a b c");
+    let _: Vec<&str> = s.split(" ").rev().collect();
 }
 
 fn main() {

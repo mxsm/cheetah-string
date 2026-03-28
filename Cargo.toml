@@ -34,5 +34,9 @@ name = "cheetah"
 harness = false
 
 [[bench]]
+name = "comprehensive"
+harness = false
+
+[[bench]]
 name = "simd"
 harness = false

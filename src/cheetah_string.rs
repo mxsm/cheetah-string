@@ -191,13 +191,18 @@ impl From<CheetahString> for String {
             } => s.to_string(),
             CheetahString {
                 inner: InnerString::ArcString(s),
-            } => s.as_ref().clone(),
+            } => match Arc::try_unwrap(s) {
+                Ok(s) => s,
+                Err(s) => s.as_ref().clone(),
+            },
             CheetahString {
                 inner: InnerString::ArcVecString(s),
-            } => {
-                // SAFETY: ArcVecString should only be created from valid UTF-8 sources
-                unsafe { String::from_utf8_unchecked(s.to_vec()) }
-            }
+            } => match Arc::try_unwrap(s) {
+                // SAFETY: ArcVecString should only be created from valid UTF-8 sources.
+                Ok(s) => unsafe { String::from_utf8_unchecked(s) },
+                // SAFETY: ArcVecString should only be created from valid UTF-8 sources.
+                Err(s) => unsafe { String::from_utf8_unchecked(s.as_ref().clone()) },
+            },
             #[cfg(feature = "bytes")]
             CheetahString {
                 inner: InnerString::Bytes(b),
@@ -485,12 +490,12 @@ impl CheetahString {
             StrPatternImpl::Str(s) => {
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 {
-                    crate::simd::starts_with_bytes(self.as_bytes(), s.as_bytes())
+                    if s.len() >= crate::simd::SIMD_THRESHOLD {
+                        return crate::simd::starts_with_bytes(self.as_bytes(), s.as_bytes());
+                    }
                 }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                {
-                    self.as_str().starts_with(s)
-                }
+
+                self.as_str().starts_with(s)
             }
         }
     }
@@ -533,12 +538,12 @@ impl CheetahString {
             StrPatternImpl::Str(s) => {
                 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
                 {
-                    crate::simd::ends_with_bytes(self.as_bytes(), s.as_bytes())
+                    if s.len() >= crate::simd::SIMD_THRESHOLD {
+                        return crate::simd::ends_with_bytes(self.as_bytes(), s.as_bytes());
+                    }
                 }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                {
-                    self.as_str().ends_with(s)
-                }
+
+                self.as_str().ends_with(s)
             }
         }
     }
@@ -1356,18 +1361,21 @@ pub enum StrPatternImpl<'a> {
 }
 
 impl StrPattern for char {
+    #[inline]
     fn as_str_pattern(&self) -> StrPatternImpl<'_> {
         StrPatternImpl::Char(*self)
     }
 }
 
 impl StrPattern for &str {
+    #[inline]
     fn as_str_pattern(&self) -> StrPatternImpl<'_> {
         StrPatternImpl::Str(self)
     }
 }
 
 impl StrPattern for &String {
+    #[inline]
     fn as_str_pattern(&self) -> StrPatternImpl<'_> {
         StrPatternImpl::Str(self.as_str())
     }
@@ -1387,86 +1395,42 @@ impl SplitPattern<'_> for char {
 
 impl<'a> SplitPattern<'a> for &'a str {
     fn split_str(self, s: &'a str) -> SplitWrapper<'a> {
-        let empty_pattern_state = if self.is_empty() {
-            Some(EmptyPatternState {
-                chars: s.char_indices(),
-                original: s,
-                started: false,
-            })
-        } else {
-            None
+        let inner = match single_char_pattern(self) {
+            Some(ch) => SplitStrInner::Char(s.split(ch)),
+            None => SplitStrInner::Str(s.split(self)),
         };
 
-        SplitWrapper::Str(SplitStr {
-            string: s,
-            pattern: self,
-            finished: false,
-            empty_pattern_state,
-        })
+        SplitWrapper::Str(SplitStr(inner))
     }
 }
 
 /// Helper struct for splitting strings by a string pattern
-pub struct SplitStr<'a> {
-    string: &'a str,
-    pattern: &'a str,
-    finished: bool,
-    /// For empty pattern, we need to iterate over chars
-    empty_pattern_state: Option<EmptyPatternState<'a>>,
+pub struct SplitStr<'a>(SplitStrInner<'a>);
+
+enum SplitStrInner<'a> {
+    Str(str::Split<'a, &'a str>),
+    Char(str::Split<'a, char>),
 }
 
-#[derive(Clone)]
-struct EmptyPatternState<'a> {
-    chars: str::CharIndices<'a>,
-    original: &'a str,
-    started: bool,
+#[inline]
+fn single_char_pattern(pattern: &str) -> Option<char> {
+    let mut chars = pattern.chars();
+    let ch = chars.next()?;
+
+    if chars.next().is_none() {
+        Some(ch)
+    } else {
+        None
+    }
 }
 
 impl<'a> Iterator for SplitStr<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.finished {
-            return None;
-        }
-
-        // Handle empty pattern case (split between every character)
-        if self.pattern.is_empty() {
-            if let Some(ref mut state) = self.empty_pattern_state {
-                if !state.started {
-                    state.started = true;
-                    // First element is always empty string before first char
-                    return Some("");
-                }
-
-                match state.chars.next() {
-                    Some((pos, ch)) => {
-                        let char_end = pos + ch.len_utf8();
-                        let result = &state.original[pos..char_end];
-                        Some(result)
-                    }
-                    None => {
-                        self.finished = true;
-                        // Last element is empty string after last char
-                        Some("")
-                    }
-                }
-            } else {
-                unreachable!("empty_pattern_state should be Some for empty pattern")
-            }
-        } else {
-            // Normal case: non-empty pattern
-            match self.string.find(self.pattern) {
-                Some(pos) => {
-                    let result = &self.string[..pos];
-                    self.string = &self.string[pos + self.pattern.len()..];
-                    Some(result)
-                }
-                None => {
-                    self.finished = true;
-                    Some(self.string)
-                }
-            }
+        match &mut self.0 {
+            SplitStrInner::Str(iter) => iter.next(),
+            SplitStrInner::Char(iter) => iter.next(),
         }
     }
 }
