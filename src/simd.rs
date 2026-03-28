@@ -8,7 +8,7 @@
 use core::arch::x86_64::*;
 
 /// Minimum length threshold for using SIMD operations
-const SIMD_THRESHOLD: usize = 16;
+pub(crate) const SIMD_THRESHOLD: usize = 16;
 
 #[cfg(all(feature = "simd", target_arch = "x86_64", feature = "std"))]
 #[inline]
@@ -94,21 +94,65 @@ pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         return Some(0);
     }
 
-    if needle.len() > haystack.len() {
+    let needle_len = needle.len();
+
+    if needle_len > haystack.len() {
         return None;
+    }
+
+    if needle_len == 1 {
+        return find_first_byte(haystack, needle[0]);
+    }
+
+    if needle_len < SIMD_THRESHOLD {
+        return find_short_bytes(haystack, needle);
     }
 
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
     {
-        if has_sse2() && needle.len() >= SIMD_THRESHOLD && haystack.len() >= SIMD_THRESHOLD {
+        if has_sse2() && needle_len >= SIMD_THRESHOLD && haystack.len() >= SIMD_THRESHOLD {
             return unsafe { find_bytes_sse2(haystack, needle) };
         }
     }
 
     // Fallback to standard search
     haystack
-        .windows(needle.len())
+        .windows(needle_len)
         .position(|window| window == needle)
+}
+
+#[inline]
+fn find_first_byte(haystack: &[u8], needle: u8) -> Option<usize> {
+    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+    {
+        if has_sse2() && haystack.len() >= SIMD_THRESHOLD {
+            return unsafe { find_byte_sse2(haystack, needle) };
+        }
+    }
+
+    haystack.iter().position(|&b| b == needle)
+}
+
+#[inline]
+fn find_short_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    debug_assert!(needle.len() > 1 && needle.len() < SIMD_THRESHOLD);
+
+    let needle_len = needle.len();
+    let last_start = haystack.len() - needle_len;
+    let mut pos = 0;
+
+    while pos <= last_start {
+        let offset = find_first_byte(&haystack[pos..last_start + 1], needle[0])?;
+        let candidate = pos + offset;
+
+        if haystack[candidate + 1..candidate + needle_len] == needle[1..] {
+            return Some(candidate);
+        }
+
+        pos = candidate + 1;
+    }
+
+    None
 }
 
 // SIMD implementations for x86_64 with SSE2
@@ -261,6 +305,9 @@ mod tests {
         assert_eq!(find_bytes(haystack, b"test"), Some(23));
         assert_eq!(find_bytes(haystack, b"xyz"), None);
         assert_eq!(find_bytes(haystack, b""), Some(0));
+        assert_eq!(find_bytes(b"aaabaaaab", b"aab"), Some(1));
+        assert_eq!(find_bytes(b"abcabcabcd", b"abcd"), Some(6));
+        assert_eq!(find_bytes(b"aaaaaa", b"aab"), None);
     }
 
     #[test]
