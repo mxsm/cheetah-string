@@ -20,6 +20,7 @@ impl Serialize for CheetahString {
             }
             InnerString::StaticStr(s) => serializer.serialize_str(s),
             InnerString::ArcStr(s) => serializer.serialize_str(s.as_ref()),
+            InnerString::Owned(s) => serializer.serialize_str(s.as_str()),
             InnerString::ArcString(s) => serializer.serialize_str(s.as_str()),
             InnerString::ArcVecString(s) => serializer.serialize_bytes(s),
             #[cfg(feature = "bytes")]

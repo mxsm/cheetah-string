@@ -103,7 +103,8 @@ let s = CheetahString::try_from_bytes(bytes).unwrap();
 CheetahString is designed with performance in mind:
 
 - **Small String Optimization (SSO)**: Strings up to 23 bytes are stored inline without heap allocation
-- **Efficient Sharing**: Large strings use `Arc<str>` for cheap cloning
+- **Efficient Sharing**: Large immutable strings use `Arc<str>` for cheap cloning
+- **Fast Builders**: Capacity-preserving builder paths use owned heap storage for direct mutation
 - **Optimized Operations**: Common operations like concatenation have fast-path implementations
 - **SIMD Acceleration** (with `simd` feature): String matching operations (`starts_with`, `ends_with`, `contains`, `find`, equality comparisons) are accelerated using SSE2 SIMD instructions on x86_64 platforms. The implementation automatically falls back to scalar code for small inputs or when SIMD is not available.
 
@@ -123,7 +124,8 @@ CheetahString intelligently chooses the most efficient storage:
 |-------------|---------|------------------|----------|
 | ≤ 23 bytes | Inline (SSO) | 0 | Short strings, identifiers |
 | Static | `&'static str` | 0 | String literals |
-| Dynamic | `Arc<str>` | 1 | Long strings, shared data |
+| Dynamic | `Arc<str>` | 1 | Long immutable strings, shared data |
+| Builder | `String` | 1 | Reserved capacity, repeated mutation |
 | From Arc | `Arc<String>` | 1 | Interop with existing Arc |
 | Bytes | `bytes::Bytes` | 1 | Network buffers (with feature) |
 

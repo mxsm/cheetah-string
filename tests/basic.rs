@@ -159,6 +159,56 @@ fn test_from_arc_string() {
 }
 
 #[test]
+fn test_into_string_reuses_unique_arc_string_buffer() {
+    let value = "a".repeat(64);
+    let arc = Arc::new(value);
+    let original_ptr = arc.as_bytes().as_ptr();
+
+    let s = CheetahString::from(arc);
+    let owned: String = s.into();
+
+    assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
+}
+
+#[test]
+fn test_into_string_clones_shared_arc_string_buffer() {
+    let value = "a".repeat(64);
+    let arc = Arc::new(value);
+    let original_ptr = arc.as_bytes().as_ptr();
+
+    let s = CheetahString::from(arc);
+    let shared = s.clone();
+    let owned: String = s.into();
+
+    assert_ne!(owned.as_bytes().as_ptr(), original_ptr);
+    assert_eq!(shared.as_str(), "a".repeat(64));
+}
+
+#[test]
+fn test_into_string_reuses_unique_vec_buffer() {
+    let bytes = vec![b'a'; 64];
+    let original_ptr = bytes.as_ptr();
+
+    let s = CheetahString::from(bytes);
+    let owned: String = s.into();
+
+    assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
+}
+
+#[test]
+fn test_into_string_clones_shared_vec_buffer() {
+    let bytes = vec![b'a'; 64];
+    let original_ptr = bytes.as_ptr();
+
+    let s = CheetahString::from(bytes);
+    let shared = s.clone();
+    let owned: String = s.into();
+
+    assert_ne!(owned.as_bytes().as_ptr(), original_ptr);
+    assert_eq!(shared.as_str(), "a".repeat(64));
+}
+
+#[test]
 fn test_from_iter_str() {
     let parts = vec!["hello", " ", "world"];
     let s: CheetahString = parts.into_iter().collect();
@@ -178,7 +228,7 @@ fn test_from_iter_string() {
 
 #[test]
 fn test_from_iter_chars() {
-    let chars = vec!['h', 'e', 'l', 'l', 'o'];
+    let chars = ['h', 'e', 'l', 'l', 'o'];
     let s: CheetahString = chars.iter().collect();
     assert_eq!(s, "hello");
 }

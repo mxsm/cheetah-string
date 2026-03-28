@@ -3,7 +3,7 @@
 //! No more relying solely on the standard library's String! CheetahString is a versatile string type that can store static strings, dynamic strings, and byte arrays.
 //! It is usable in both `std` and `no_std` environments. Additionally, CheetahString supports serde for serialization and deserialization.
 //! CheetahString also supports the `bytes` feature, allowing conversion to the `bytes::Bytes` type.
-//! This reduces memory allocations during cloning, enhancing performance.
+//! It minimizes allocations across small, shared, and builder-oriented string workloads.
 //!
 //! # SIMD Acceleration
 //!

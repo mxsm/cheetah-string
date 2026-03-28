@@ -34,13 +34,13 @@ fn criterion_benchmark(c: &mut Criterion) {
         512 * 1024,
         1024 * 1024,
     ] {
-        let cs4 = CheetahString::from_string(String::from("h".repeat(size)));
+        let cs4 = CheetahString::from_string("h".repeat(size));
 
         c.bench_function(format!("{}B CheetahString", size).as_str(), |b| {
             b.iter(|| black_box(cs4.clone()))
         });
 
-        let s4 = String::from("a".repeat(size));
+        let s4 = "a".repeat(size);
         c.bench_function(format!("{}B std string", size).as_str(), |b| {
             b.iter(|| black_box(s4.clone()))
         });
