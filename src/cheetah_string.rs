@@ -973,11 +973,10 @@ impl CheetahString {
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
         match &mut self.inner {
-            InnerString::Inline { len, .. } => {
-                if *len as usize + additional <= INLINE_CAPACITY {
-                    return;
-                }
+            InnerString::Inline { len, .. } if *len as usize + additional <= INLINE_CAPACITY => {
+                return;
             }
+            InnerString::Inline { .. } => {}
             InnerString::Owned(s) => {
                 s.reserve(additional);
                 return;

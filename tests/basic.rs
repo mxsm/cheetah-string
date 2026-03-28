@@ -228,7 +228,7 @@ fn test_from_iter_string() {
 
 #[test]
 fn test_from_iter_chars() {
-    let chars = vec!['h', 'e', 'l', 'l', 'o'];
+    let chars = ['h', 'e', 'l', 'l', 'o'];
     let s: CheetahString = chars.iter().collect();
     assert_eq!(s, "hello");
 }
