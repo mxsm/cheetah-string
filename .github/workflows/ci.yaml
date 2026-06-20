@@ -11,7 +11,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
 
     strategy:
       matrix:
@@ -50,3 +50,14 @@ jobs:
 
       - name: Test
         run: cargo test --verbose --all-features
+
+      - name: Layout snapshot
+        run: cargo test layout_snapshot --all-features -- --nocapture
+
+      - name: Upload layout artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: layout-${{ matrix.os }}-${{ matrix.rust }}
+          path: target/layout-artifacts
+          if-no-files-found: ignore
