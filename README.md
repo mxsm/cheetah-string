@@ -58,7 +58,7 @@ cheetah-string = { version = "1.1.0", features = ["bytes", "serde", "simd"] }
 
 Available features:
 - `std` (default): Enable standard library support
-- `bytes`: Integration with the `bytes` crate
+- `bytes`: `CheetahBytes` and integration with the `bytes` crate
 - `serde`: Serialization support via serde
 - `simd`: SIMD-accelerated string operations (x86_64 SSE2)
 
@@ -138,6 +138,7 @@ CheetahString intelligently chooses the most efficient storage:
 - `from_static_str(s)` - Zero-cost wrapper for `'static str`
 - `from_string(s)` - From owned `String`
 - `try_from_bytes(b)` - Safe construction from bytes with UTF-8 validation
+- `CheetahBytes` - Byte-oriented companion type available with the `bytes` feature
 - `with_capacity(n)` - Pre-allocate capacity
 
 ### Query Methods
