@@ -12,5 +12,8 @@ cargo bench --bench layout |
 cargo bench --bench comprehensive |
     Tee-Object -FilePath (Join-Path $ResultDir "comprehensive.txt")
 
+cargo bench --bench pattern |
+    Tee-Object -FilePath (Join-Path $ResultDir "pattern.txt")
+
 cargo bench --bench simd --features simd |
     Tee-Object -FilePath (Join-Path $ResultDir "simd.txt")

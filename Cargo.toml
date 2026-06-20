@@ -16,11 +16,12 @@ A lightweight, high-performance string manipulation library optimized for speed-
 
 [dependencies]
 bytes = { version = "1.10.0", optional = true, default-features = false }
+memchr = { version = "2", default-features = false }
 serde = { version = "1.0", optional = true, default-features = false, features = ["alloc"] }
 
 [features]
 default = ["std"]
-std = []
+std = ["memchr/std"]
 serde = ["dep:serde", "serde/alloc"]
 bytes = ["dep:bytes"]
 simd = []
@@ -39,6 +40,10 @@ harness = false
 
 [[bench]]
 name = "layout"
+harness = false
+
+[[bench]]
+name = "pattern"
 harness = false
 
 [[bench]]

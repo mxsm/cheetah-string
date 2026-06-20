@@ -4,15 +4,15 @@
 //! It is usable in both `std` and `no_std` environments. Additionally, CheetahString supports serde for serialization and deserialization.
 //! CheetahString also supports the `bytes` feature, allowing conversion to the `bytes::Bytes` type.
 //! It minimizes allocations across small, shared, and builder-oriented string workloads.
+//! Substring search uses `memchr`/`memmem` by default.
 //!
 //! # SIMD Acceleration
 //!
 //! When compiled with the `simd` feature flag, CheetahString uses SIMD (Single Instruction, Multiple Data)
-//! instructions to accelerate string matching operations on x86_64 platforms with SSE2 support.
+//! instructions to accelerate selected byte comparisons on x86_64 platforms with SSE2 support.
 //! SIMD acceleration is applied to:
 //! - `starts_with()` - Pattern prefix matching
 //! - `ends_with()` - Pattern suffix matching
-//! - `contains()` / `find()` - Substring search
 //! - Equality comparisons (`==`, `!=`)
 //!
 //! The implementation automatically uses SIMD for strings >= 16 bytes and falls back to scalar operations
@@ -40,13 +40,13 @@
 //!
 //! ```
 //!
-//! Using SIMD-accelerated operations (when `simd` feature is enabled):
+//! Using accelerated search operations:
 //! ```rust
 //! use cheetah_string::CheetahString;
 //!
 //! let url = CheetahString::from("https://api.example.com/v1/users");
 //!
-//! // These operations use SIMD when the pattern is >= 16 bytes
+//! // Substring search uses memchr/memmem by default.
 //! if url.starts_with("https://") {
 //!     println!("Secure connection");
 //! }
@@ -60,6 +60,7 @@ extern crate alloc;
 
 mod cheetah_string;
 mod error;
+mod search;
 
 #[cfg(feature = "serde")]
 mod serde;
@@ -69,3 +70,4 @@ mod simd;
 
 pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, SplitWrapper, StrPattern};
 pub use error::{Error, Result};
+pub use search::CheetahFinder;
