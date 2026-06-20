@@ -24,6 +24,7 @@ default = ["std"]
 std = ["memchr/std"]
 serde = ["dep:serde", "serde/alloc"]
 bytes = ["dep:bytes"]
+experimental-packed = []
 simd = []
 
 [dev-dependencies]

@@ -72,6 +72,9 @@ mod serde;
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 mod simd;
 
+#[cfg(feature = "experimental-packed")]
+pub mod packed;
+
 #[cfg(feature = "bytes")]
 pub use cheetah_bytes::CheetahBytes;
 
