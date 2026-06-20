@@ -46,14 +46,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-cheetah-string = "1.1.0"
+cheetah-string = "1.2.0"
 ```
 
 ### Optional Features
 
 ```toml
 [dependencies]
-cheetah-string = { version = "1.1.0", features = ["bytes", "serde", "simd"] }
+cheetah-string = { version = "1.2.0", features = ["bytes", "serde", "simd"] }
 ```
 
 Available features:
@@ -61,6 +61,7 @@ Available features:
 - `bytes`: `CheetahBytes` and integration with the `bytes` crate
 - `serde`: Serialization support via serde
 - `simd`: SIMD-accelerated string operations (x86_64 SSE2)
+- `experimental-packed`: Experimental packed representation prototype
 
 ## 🚀 Quick Start
 
@@ -94,6 +95,11 @@ builder.push_str("Hello");
 builder.push_str(", ");
 builder.push_str("World!");
 
+// Explicit String storage policy
+let mut owned = CheetahString::from_string_owned(String::with_capacity(128));
+owned.push_str("capacity-preserving");
+let shared = CheetahString::from_string_shared("clone-cheap".repeat(16));
+
 // Safe UTF-8 validation
 let bytes = b"hello";
 let s = CheetahString::try_from_bytes(bytes).unwrap();
@@ -125,10 +131,9 @@ CheetahString intelligently chooses the most efficient storage:
 |-------------|---------|------------------|----------|
 | ≤ 23 bytes | Inline (SSO) | 0 | Short strings, identifiers |
 | Static | `&'static str` | 0 | String literals |
-| Dynamic | `Arc<str>` | 1 | Long immutable strings, shared data |
-| Builder | `String` | 1 | Reserved capacity, repeated mutation |
-| From Arc | `Arc<String>` | 1 | Interop with existing Arc |
-| Bytes | `bytes::Bytes` | 1 | Network buffers (with feature) |
+| Shared | `Arc<str>` | 1 | Long immutable strings, shared data |
+| Owned | `String` | 1 | Reserved capacity, repeated mutation |
+| Bytes | `CheetahBytes` | 1 | Byte-oriented network buffers (with feature) |
 
 ## 🔧 API Overview
 
@@ -136,7 +141,9 @@ CheetahString intelligently chooses the most efficient storage:
 - `new()`, `empty()`, `default()` - Create empty strings
 - `from(s)` - From `&str`, `String`, `&String`, `char`, etc.
 - `from_static_str(s)` - Zero-cost wrapper for `'static str`
-- `from_string(s)` - From owned `String`
+- `from_string(s)` - From owned `String` with the 1.x shared-long-string policy
+- `from_string_owned(s)` - Preserve `String` ownership and spare capacity for mutation
+- `from_string_shared(s)` - Convert long owned strings to clone-cheap shared storage
 - `try_from_bytes(b)` - Safe construction from bytes with UTF-8 validation
 - `CheetahBytes` - Byte-oriented companion type available with the `bytes` feature
 - `with_capacity(n)` - Pre-allocate capacity
