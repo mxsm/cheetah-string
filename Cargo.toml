@@ -27,8 +27,10 @@ bytes = ["dep:bytes"]
 simd = []
 
 [dev-dependencies]
+compact_str = "0.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 serde_json = "1.0"
+smartstring = "1.0"
 
 
 [[bench]]
@@ -45,6 +47,18 @@ harness = false
 
 [[bench]]
 name = "mutation"
+harness = false
+
+[[bench]]
+name = "mq_properties"
+harness = false
+
+[[bench]]
+name = "mq_remoting_header"
+harness = false
+
+[[bench]]
+name = "mq_topic"
 harness = false
 
 [[bench]]

@@ -15,6 +15,15 @@ cargo bench --bench comprehensive |
 cargo bench --bench mutation |
     Tee-Object -FilePath (Join-Path $ResultDir "mutation.txt")
 
+cargo bench --bench mq_topic |
+    Tee-Object -FilePath (Join-Path $ResultDir "mq-topic.txt")
+
+cargo bench --bench mq_properties |
+    Tee-Object -FilePath (Join-Path $ResultDir "mq-properties.txt")
+
+cargo bench --bench mq_remoting_header |
+    Tee-Object -FilePath (Join-Path $ResultDir "mq-remoting-header.txt")
+
 cargo bench --bench pattern |
     Tee-Object -FilePath (Join-Path $ResultDir "pattern.txt")
 
