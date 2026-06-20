@@ -88,6 +88,7 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
 }
 
 /// Find the first occurrence of needle in haystack using SIMD when available
+#[allow(dead_code)]
 #[inline]
 pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     if needle.is_empty() {
@@ -121,6 +122,7 @@ pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
         .position(|window| window == needle)
 }
 
+#[allow(dead_code)]
 #[inline]
 fn find_first_byte(haystack: &[u8], needle: u8) -> Option<usize> {
     #[cfg(all(feature = "simd", target_arch = "x86_64"))]
@@ -133,6 +135,7 @@ fn find_first_byte(haystack: &[u8], needle: u8) -> Option<usize> {
     haystack.iter().position(|&b| b == needle)
 }
 
+#[allow(dead_code)]
 #[inline]
 fn find_short_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
     debug_assert!(needle.len() > 1 && needle.len() < SIMD_THRESHOLD);
@@ -191,6 +194,7 @@ unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
 }
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+#[allow(dead_code)]
 #[target_feature(enable = "sse2")]
 #[inline]
 unsafe fn find_bytes_sse2(haystack: &[u8], needle: &[u8]) -> Option<usize> {
@@ -231,6 +235,7 @@ unsafe fn find_bytes_sse2(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 }
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+#[allow(dead_code)]
 #[target_feature(enable = "sse2")]
 #[inline]
 unsafe fn find_byte_sse2(haystack: &[u8], needle: u8) -> Option<usize> {

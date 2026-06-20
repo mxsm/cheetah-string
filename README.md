@@ -31,7 +31,8 @@ CheetahString is a versatile string type that goes beyond the standard library's
 - **⚡ Performance Focused**
   - Optimized for common string operations
   - Reduced memory allocations via intelligent internal representation
-  - Optional SIMD acceleration for string matching operations (x86_64 SSE2)
+  - `memchr`/`memmem` substring search by default
+  - Optional SIMD acceleration for selected byte comparisons (x86_64 SSE2)
   - Benchmarked against standard library types
 
 - **🛡️ Safe & Correct**
@@ -106,7 +107,7 @@ CheetahString is designed with performance in mind:
 - **Efficient Sharing**: Large immutable strings use `Arc<str>` for cheap cloning
 - **Fast Builders**: Capacity-preserving builder paths use owned heap storage for direct mutation
 - **Optimized Operations**: Common operations like concatenation have fast-path implementations
-- **SIMD Acceleration** (with `simd` feature): String matching operations (`starts_with`, `ends_with`, `contains`, `find`, equality comparisons) are accelerated using SSE2 SIMD instructions on x86_64 platforms. The implementation automatically falls back to scalar code for small inputs or when SIMD is not available.
+- **Search Acceleration**: Substring search uses `memchr`/`memmem` by default. With the `simd` feature, selected byte comparisons such as prefix, suffix, and equality paths can use SSE2 on x86_64 platforms.
 
 Run benchmarks:
 ```bash

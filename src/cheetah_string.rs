@@ -691,14 +691,7 @@ impl CheetahString {
         match pat.as_str_pattern() {
             StrPatternImpl::Char(c) => self.as_str().contains(c),
             StrPatternImpl::Str(s) => {
-                #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-                {
-                    crate::simd::find_bytes(self.as_bytes(), s.as_bytes()).is_some()
-                }
-                #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-                {
-                    self.as_str().contains(s)
-                }
+                crate::search::find_bytes(self.as_bytes(), s.as_bytes()).is_some()
             }
         }
     }
@@ -736,14 +729,7 @@ impl CheetahString {
     #[inline]
     pub fn find<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
         let pat = pat.as_ref();
-        #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-        {
-            crate::simd::find_bytes(self.as_bytes(), pat.as_bytes())
-        }
-        #[cfg(not(all(feature = "simd", target_arch = "x86_64")))]
-        {
-            self.as_str().find(pat)
-        }
+        crate::search::find_bytes(self.as_bytes(), pat.as_bytes())
     }
 
     /// Returns the byte index of the last occurrence of the pattern, or `None` if not found.
@@ -758,7 +744,7 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn rfind<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
-        self.as_str().rfind(pat.as_ref())
+        crate::search::rfind_bytes(self.as_bytes(), pat.as_ref().as_bytes())
     }
 
     /// Returns a string slice with leading and trailing whitespace removed.
