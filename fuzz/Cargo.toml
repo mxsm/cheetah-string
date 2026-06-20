@@ -1,0 +1,26 @@
+[package]
+name = "cheetah-string-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+cheetah-string = { path = "..", features = ["experimental-packed"] }
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "fuzz_packed_from_bytes"
+path = "fuzz_targets/packed_from_bytes.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_packed_push_str"
+path = "fuzz_targets/packed_push_str.rs"
+test = false
+doc = false
+bench = false
