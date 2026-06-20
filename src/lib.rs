@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-//! No more relying solely on the standard library's String! CheetahString is a versatile string type that can store static strings, dynamic strings, and byte arrays.
+//! No more relying solely on the standard library's String! CheetahString is a versatile string type that can store static and dynamic strings.
 //! It is usable in both `std` and `no_std` environments. Additionally, CheetahString supports serde for serialization and deserialization.
-//! CheetahString also supports the `bytes` feature, allowing conversion to the `bytes::Bytes` type.
+//! The `bytes` feature exposes `CheetahBytes` for byte-oriented data.
 //! It minimizes allocations across small, shared, and builder-oriented string workloads.
 //! Substring search uses `memchr`/`memmem` by default.
 //!
@@ -62,11 +62,18 @@ mod cheetah_string;
 mod error;
 mod search;
 
+#[cfg(feature = "bytes")]
+#[path = "bytes.rs"]
+mod cheetah_bytes;
+
 #[cfg(feature = "serde")]
 mod serde;
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
 mod simd;
+
+#[cfg(feature = "bytes")]
+pub use cheetah_bytes::CheetahBytes;
 
 pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, SplitWrapper, StrPattern};
 pub use error::{Error, Result};
