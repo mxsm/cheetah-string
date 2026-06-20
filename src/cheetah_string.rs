@@ -47,19 +47,12 @@ impl<'a> From<&'a str> for CheetahString {
     }
 }
 
-/// # Safety Warning
-///
-/// This implementation uses `unsafe` code and may cause undefined behavior
-/// if the bytes are not valid UTF-8. Consider using `CheetahString::try_from_bytes()`
-/// for safe UTF-8 validation.
-///
-/// This implementation will be deprecated in a future version.
-impl From<&[u8]> for CheetahString {
+impl<'a> TryFrom<&'a [u8]> for CheetahString {
+    type Error = Utf8Error;
+
     #[inline]
-    fn from(b: &[u8]) -> Self {
-        // SAFETY: This is unsafe and may cause UB if bytes are not valid UTF-8.
-        // This will be deprecated in favor of try_from_bytes in the next version.
-        CheetahString::from_slice(unsafe { str::from_utf8_unchecked(b) })
+    fn try_from(b: &'a [u8]) -> Result<Self, Self::Error> {
+        CheetahString::try_from_bytes(b)
     }
 }
 
@@ -71,19 +64,12 @@ impl FromStr for CheetahString {
     }
 }
 
-/// # Safety Warning
-///
-/// This implementation uses `unsafe` code and may cause undefined behavior
-/// if the bytes are not valid UTF-8. Consider using `CheetahString::try_from_vec()`
-/// for safe UTF-8 validation.
-///
-/// This implementation will be deprecated in a future version.
-impl From<Vec<u8>> for CheetahString {
+impl TryFrom<Vec<u8>> for CheetahString {
+    type Error = Utf8Error;
+
     #[inline]
-    fn from(v: Vec<u8>) -> Self {
-        // SAFETY: This constructor does not validate UTF-8 and may cause UB
-        // if the bytes are later observed as a string.
-        CheetahString::from_vec(v)
+    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
+        CheetahString::try_from_vec(v)
     }
 }
 
@@ -159,10 +145,12 @@ impl<'a> FromIterator<&'a String> for CheetahString {
 }
 
 #[cfg(feature = "bytes")]
-impl From<bytes::Bytes> for CheetahString {
+impl TryFrom<bytes::Bytes> for CheetahString {
+    type Error = Utf8Error;
+
     #[inline]
-    fn from(b: bytes::Bytes) -> Self {
-        CheetahString::from_bytes(b)
+    fn try_from(b: bytes::Bytes) -> Result<Self, Self::Error> {
+        CheetahString::try_from_bytes_buf(b)
     }
 }
 
@@ -277,8 +265,29 @@ impl CheetahString {
         }
     }
 
-    #[inline]
+    #[deprecated(
+        since = "1.1.0",
+        note = "use try_from_vec for checked construction or from_utf8_unchecked_vec for an explicit unsafe constructor"
+    )]
     pub fn from_vec(s: Vec<u8>) -> Self {
+        CheetahString::try_from_vec(s).expect(
+            "CheetahString::from_vec requires valid UTF-8; use try_from_vec for fallible construction",
+        )
+    }
+
+    /// Creates a `CheetahString` from a byte vector without validating UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that `s` contains valid UTF-8 for the entire
+    /// lifetime of the returned `CheetahString`.
+    #[inline]
+    pub unsafe fn from_utf8_unchecked_vec(s: Vec<u8>) -> Self {
+        CheetahString::from_validated_vec_unchecked(s)
+    }
+
+    #[inline]
+    fn from_validated_vec_unchecked(s: Vec<u8>) -> Self {
         if s.len() <= INLINE_CAPACITY {
             let mut data = [0u8; INLINE_CAPACITY];
             data[..s.len()].copy_from_slice(&s);
@@ -314,9 +323,8 @@ impl CheetahString {
     /// assert!(CheetahString::try_from_vec(invalid).is_err());
     /// ```
     pub fn try_from_vec(v: Vec<u8>) -> Result<Self, Utf8Error> {
-        // Validate UTF-8
         str::from_utf8(&v)?;
-        Ok(CheetahString::from_vec(v))
+        Ok(CheetahString::from_validated_vec_unchecked(v))
     }
 
     /// Creates a `CheetahString` from a byte slice with UTF-8 validation.
@@ -342,8 +350,51 @@ impl CheetahString {
         Ok(CheetahString::from_slice(s))
     }
 
+    /// Creates a `CheetahString` from a byte slice without validating UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that `b` contains valid UTF-8.
+    #[inline]
+    pub unsafe fn from_utf8_unchecked_bytes(b: &[u8]) -> Self {
+        // SAFETY: The caller guarantees that `b` contains valid UTF-8.
+        CheetahString::from_slice(unsafe { str::from_utf8_unchecked(b) })
+    }
+
+    /// Creates a `CheetahString` from a shared byte vector with UTF-8 validation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the bytes are not valid UTF-8.
+    #[inline]
+    pub fn try_from_arc_vec(s: Arc<Vec<u8>>) -> Result<Self, Utf8Error> {
+        str::from_utf8(s.as_slice())?;
+        Ok(CheetahString::from_validated_arc_vec_unchecked(s))
+    }
+
+    #[deprecated(
+        since = "1.1.0",
+        note = "use try_from_arc_vec for checked construction or from_utf8_unchecked_arc_vec for an explicit unsafe constructor"
+    )]
     #[inline]
     pub fn from_arc_vec(s: Arc<Vec<u8>>) -> Self {
+        CheetahString::try_from_arc_vec(s).expect(
+            "CheetahString::from_arc_vec requires valid UTF-8; use try_from_arc_vec for fallible construction",
+        )
+    }
+
+    /// Creates a `CheetahString` from a shared byte vector without validating UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that `s` contains valid UTF-8.
+    #[inline]
+    pub unsafe fn from_utf8_unchecked_arc_vec(s: Arc<Vec<u8>>) -> Self {
+        CheetahString::from_validated_arc_vec_unchecked(s)
+    }
+
+    #[inline]
+    fn from_validated_arc_vec_unchecked(s: Arc<Vec<u8>>) -> Self {
         CheetahString {
             inner: InnerString::ArcVecString(s),
         }
@@ -418,7 +469,37 @@ impl CheetahString {
 
     #[inline]
     #[cfg(feature = "bytes")]
+    #[deprecated(
+        since = "1.1.0",
+        note = "use try_from_bytes_buf for checked construction or from_utf8_unchecked_bytes_buf for an explicit unsafe constructor"
+    )]
     pub fn from_bytes(b: bytes::Bytes) -> Self {
+        CheetahString::try_from_bytes_buf(b).expect(
+            "CheetahString::from_bytes requires valid UTF-8; use try_from_bytes_buf for fallible construction",
+        )
+    }
+
+    #[inline]
+    #[cfg(feature = "bytes")]
+    pub fn try_from_bytes_buf(b: bytes::Bytes) -> Result<Self, Utf8Error> {
+        str::from_utf8(b.as_ref())?;
+        Ok(CheetahString::from_validated_bytes_unchecked(b))
+    }
+
+    /// Creates a `CheetahString` from `bytes::Bytes` without validating UTF-8.
+    ///
+    /// # Safety
+    ///
+    /// The caller must guarantee that `b` contains valid UTF-8.
+    #[inline]
+    #[cfg(feature = "bytes")]
+    pub unsafe fn from_utf8_unchecked_bytes_buf(b: bytes::Bytes) -> Self {
+        CheetahString::from_validated_bytes_unchecked(b)
+    }
+
+    #[inline]
+    #[cfg(feature = "bytes")]
+    fn from_validated_bytes_unchecked(b: bytes::Bytes) -> Self {
         CheetahString {
             inner: InnerString::Bytes(b),
         }
@@ -1455,6 +1536,7 @@ impl<'a> DoubleEndedIterator for SplitWrapper<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::{format, vec};
 
     #[test]
     fn with_capacity_above_inline_uses_heap_storage() {
@@ -1524,7 +1606,7 @@ mod tests {
     #[test]
     fn long_vec_conversion_uses_arc_vec_storage() {
         let value = "a".repeat(INLINE_CAPACITY + 1).into_bytes();
-        let s = CheetahString::from(value);
+        let s = CheetahString::try_from_vec(value).expect("valid utf-8");
 
         match &s.inner {
             InnerString::ArcVecString(inner) => {

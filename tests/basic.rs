@@ -189,7 +189,7 @@ fn test_into_string_reuses_unique_vec_buffer() {
     let bytes = vec![b'a'; 64];
     let original_ptr = bytes.as_ptr();
 
-    let s = CheetahString::from(bytes);
+    let s = CheetahString::try_from_vec(bytes).unwrap();
     let owned: String = s.into();
 
     assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
@@ -200,7 +200,7 @@ fn test_into_string_clones_shared_vec_buffer() {
     let bytes = vec![b'a'; 64];
     let original_ptr = bytes.as_ptr();
 
-    let s = CheetahString::from(bytes);
+    let s = CheetahString::try_from_vec(bytes).unwrap();
     let shared = s.clone();
     let owned: String = s.into();
 
@@ -282,6 +282,26 @@ fn test_try_from_vec_method() {
 }
 
 #[test]
+fn test_try_from_slice_trait() {
+    let bytes: &[u8] = b"hello";
+    let s = CheetahString::try_from(bytes).unwrap();
+    assert_eq!(s, "hello");
+
+    let invalid: &[u8] = &[0xFF, 0xFE];
+    assert!(CheetahString::try_from(invalid).is_err());
+}
+
+#[test]
+fn test_try_from_vec_trait() {
+    let bytes = vec![104, 101, 108, 108, 111];
+    let s = CheetahString::try_from(bytes).unwrap();
+    assert_eq!(s, "hello");
+
+    let invalid = vec![0xFF, 0xFE];
+    assert!(CheetahString::try_from(invalid).is_err());
+}
+
+#[test]
 fn test_unicode() {
     let s = CheetahString::from("\u{00E9}\u{00E7}\u{00F1}\u{00FC}"); // accented chars
     assert_eq!(s, "\u{00E9}\u{00E7}\u{00F1}\u{00FC}");
@@ -341,6 +361,9 @@ fn test_from_bytes_feature() {
     use bytes::Bytes;
 
     let bytes = Bytes::from("hello");
-    let s = CheetahString::from(bytes);
+    let s = CheetahString::try_from(bytes).unwrap();
     assert_eq!(s, "hello");
+
+    let invalid = Bytes::from_static(&[0xFF, 0xFE]);
+    assert!(CheetahString::try_from(invalid).is_err());
 }

@@ -21,7 +21,7 @@
 //! To enable SIMD acceleration:
 //! ```toml
 //! [dependencies]
-//! cheetah-string = { version = "1.0.0", features = ["simd"] }  
+//! cheetah-string = { version = "1.1.0", features = ["simd"] }  
 //! ```
 //!
 //! # Examples
