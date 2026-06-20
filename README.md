@@ -17,6 +17,7 @@ CheetahString is a versatile string type that goes beyond the standard library's
   - Efficient Arc-based sharing for larger strings
 
 - **🔧 Rich API**
+  - Type split: `CheetahStr` for immutable clone-cheap keys and `CheetahBuilder` for append-heavy construction
   - Query methods: `starts_with`, `ends_with`, `contains`, `find`, `rfind`
   - Transformation: `to_uppercase`, `to_lowercase`, `replace`, `trim`
   - Iteration: `split`, `lines`, `chars`
@@ -66,7 +67,7 @@ Available features:
 ## 🚀 Quick Start
 
 ```rust
-use cheetah_string::CheetahString;
+use cheetah_string::{CheetahBuilder, CheetahStr, CheetahString};
 
 // Create from various sources
 let s1 = CheetahString::from("hello");           // From &str
@@ -90,15 +91,22 @@ let name = CheetahString::from(" Rust");
 let message = greeting + name.as_str();  // "Hello Rust"
 
 // Builder pattern for efficient construction
-let mut builder = CheetahString::with_capacity(100);
-builder.push_str("Hello");
-builder.push_str(", ");
-builder.push_str("World!");
+let mut string_builder = CheetahString::with_capacity(100);
+string_builder.push_str("Hello");
+string_builder.push_str(", ");
+string_builder.push_str("World!");
 
 // Explicit String storage policy
 let mut owned = CheetahString::from_string_owned(String::with_capacity(128));
 owned.push_str("capacity-preserving");
 let shared = CheetahString::from_string_shared("clone-cheap".repeat(16));
+
+// v2 type split
+let topic = CheetahStr::from_static_str("orders-created");
+let mut route_builder = CheetahBuilder::with_capacity(64);
+route_builder.push_str(topic.as_str());
+route_builder.push_str(":partition-0");
+let route_key = route_builder.finish_str();
 
 // Safe UTF-8 validation
 let bytes = b"hello";
@@ -135,6 +143,16 @@ CheetahString intelligently chooses the most efficient storage:
 | Owned | `String` | 1 | Reserved capacity, repeated mutation |
 | Bytes | `CheetahBytes` | 1 | Byte-oriented network buffers (with feature) |
 
+For new code, use:
+
+| Type | Role |
+|------|------|
+| `CheetahStr` | Immutable clone-cheap values such as topics, groups, names, and keys |
+| `CheetahString` | Mutable string value with the 1.x compatibility API |
+| `CheetahBuilder` | Append-heavy construction followed by `finish_string()` or `finish_str()` |
+| `CheetahFinder` | Reusable substring search |
+| `CheetahBytes` | Byte semantics without a UTF-8 promise |
+
 ## 🔧 API Overview
 
 ### Construction
@@ -145,6 +163,8 @@ CheetahString intelligently chooses the most efficient storage:
 - `from_string_owned(s)` - Preserve `String` ownership and spare capacity for mutation
 - `from_string_shared(s)` - Convert long owned strings to clone-cheap shared storage
 - `try_from_bytes(b)` - Safe construction from bytes with UTF-8 validation
+- `CheetahStr` - Immutable clone-cheap string companion
+- `CheetahBuilder` - Append-heavy builder companion
 - `CheetahBytes` - Byte-oriented companion type available with the `bytes` feature
 - `with_capacity(n)` - Pre-allocate capacity
 

@@ -2,6 +2,8 @@
 
 //! No more relying solely on the standard library's String! CheetahString is a versatile string type that can store static and dynamic strings.
 //! It is usable in both `std` and `no_std` environments. Additionally, CheetahString supports serde for serialization and deserialization.
+//! `CheetahStr` is available for immutable clone-cheap string values, and
+//! `CheetahBuilder` is available for append-heavy construction.
 //! The `bytes` feature exposes `CheetahBytes` for byte-oriented data.
 //! It minimizes allocations across small, shared, and builder-oriented string workloads.
 //! The `from_string_owned` and `from_string_shared` constructors make owned
@@ -60,6 +62,8 @@
 //!
 extern crate alloc;
 
+mod builder;
+mod cheetah_str;
 mod cheetah_string;
 mod error;
 mod search;
@@ -80,6 +84,8 @@ pub mod packed;
 #[cfg(feature = "bytes")]
 pub use cheetah_bytes::CheetahBytes;
 
+pub use builder::CheetahBuilder;
+pub use cheetah_str::CheetahStr;
 pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, SplitWrapper, StrPattern};
 pub use error::{Error, Result};
 pub use search::CheetahFinder;
