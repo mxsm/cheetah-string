@@ -410,6 +410,28 @@ impl CheetahString {
 
     #[inline]
     pub fn from_string(s: String) -> Self {
+        CheetahString::from_string_shared(s)
+    }
+
+    /// Creates a `CheetahString` from an owned `String` while preserving
+    /// ownership and spare capacity for later mutation.
+    ///
+    /// This constructor is intended for builder-style paths that will continue
+    /// appending to the string. It keeps long strings in owned storage instead
+    /// of converting them to shared storage.
+    #[inline]
+    pub fn from_string_owned(s: String) -> Self {
+        CheetahString::from_builder_string(s)
+    }
+
+    /// Creates a `CheetahString` from an owned `String` using shared storage
+    /// for long immutable strings.
+    ///
+    /// This is the same storage policy used by `from_string` in the 1.x line.
+    /// Use `from_string_owned` when spare capacity should be preserved for
+    /// later mutation.
+    #[inline]
+    pub fn from_string_shared(s: String) -> Self {
         if s.len() <= INLINE_CAPACITY {
             // Use inline storage for short strings
             let mut data = [0u8; INLINE_CAPACITY];
@@ -1206,7 +1228,7 @@ impl Add<String> for CheetahString {
     #[inline]
     fn add(mut self, rhs: String) -> Self::Output {
         if self.is_empty() {
-            return CheetahString::from_string(rhs);
+            return CheetahString::from_string_owned(rhs);
         }
 
         self.push_str_internal(&rhs);

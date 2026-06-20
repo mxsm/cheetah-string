@@ -4,6 +4,8 @@
 //! It is usable in both `std` and `no_std` environments. Additionally, CheetahString supports serde for serialization and deserialization.
 //! The `bytes` feature exposes `CheetahBytes` for byte-oriented data.
 //! It minimizes allocations across small, shared, and builder-oriented string workloads.
+//! The `from_string_owned` and `from_string_shared` constructors make owned
+//! mutation and clone-cheap sharing policies explicit.
 //! Substring search uses `memchr`/`memmem` by default.
 //!
 //! # SIMD Acceleration
@@ -21,7 +23,7 @@
 //! To enable SIMD acceleration:
 //! ```toml
 //! [dependencies]
-//! cheetah-string = { version = "1.1.0", features = ["simd"] }  
+//! cheetah-string = { version = "1.2.0", features = ["simd"] }  
 //! ```
 //!
 //! # Examples
