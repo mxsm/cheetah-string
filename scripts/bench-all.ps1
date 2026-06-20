@@ -12,6 +12,9 @@ cargo bench --bench layout |
 cargo bench --bench comprehensive |
     Tee-Object -FilePath (Join-Path $ResultDir "comprehensive.txt")
 
+cargo bench --bench mutation |
+    Tee-Object -FilePath (Join-Path $ResultDir "mutation.txt")
+
 cargo bench --bench pattern |
     Tee-Object -FilePath (Join-Path $ResultDir "pattern.txt")
 
