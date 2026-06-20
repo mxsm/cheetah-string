@@ -213,18 +213,15 @@ unsafe fn find_bytes_sse2(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
     while pos + needle_len <= haystack_len {
         // Find the next occurrence of the first byte
-        if let Some(offset) = find_byte_sse2(&haystack[pos..], first_byte) {
-            let candidate_pos = pos + offset;
+        let offset = find_byte_sse2(&haystack[pos..], first_byte)?;
+        let candidate_pos = pos + offset;
 
-            // Check if the rest matches
-            if candidate_pos + needle_len <= haystack_len {
-                if eq_bytes_sse2(&haystack[candidate_pos..candidate_pos + needle_len], needle) {
-                    return Some(candidate_pos);
-                }
-                pos = candidate_pos + 1;
-            } else {
-                return None;
+        // Check if the rest matches
+        if candidate_pos + needle_len <= haystack_len {
+            if eq_bytes_sse2(&haystack[candidate_pos..candidate_pos + needle_len], needle) {
+                return Some(candidate_pos);
             }
+            pos = candidate_pos + 1;
         } else {
             return None;
         }
