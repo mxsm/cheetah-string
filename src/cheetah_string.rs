@@ -244,16 +244,6 @@ impl CheetahString {
         }
     }
 
-    #[deprecated(
-        since = "1.1.0",
-        note = "use try_from_vec for checked construction or from_utf8_unchecked_vec for an explicit unsafe constructor"
-    )]
-    pub fn from_vec(s: Vec<u8>) -> Self {
-        CheetahString::try_from_vec(s).expect(
-            "CheetahString::from_vec requires valid UTF-8; use try_from_vec for fallible construction",
-        )
-    }
-
     /// Creates a `CheetahString` from a byte vector without validating UTF-8.
     ///
     /// # Safety
@@ -355,17 +345,6 @@ impl CheetahString {
         }
     }
 
-    #[deprecated(
-        since = "1.1.0",
-        note = "use try_from_arc_vec for checked construction or from_utf8_unchecked_arc_vec for an explicit unsafe constructor"
-    )]
-    #[inline]
-    pub fn from_arc_vec(s: Arc<Vec<u8>>) -> Self {
-        CheetahString::try_from_arc_vec(s).expect(
-            "CheetahString::from_arc_vec requires valid UTF-8; use try_from_arc_vec for fallible construction",
-        )
-    }
-
     /// Creates a `CheetahString` from a shared byte vector without validating UTF-8.
     ///
     /// # Safety
@@ -410,7 +389,7 @@ impl CheetahString {
 
     #[inline]
     pub fn from_string(s: String) -> Self {
-        CheetahString::from_string_shared(s)
+        CheetahString::from_string_owned(s)
     }
 
     /// Creates a `CheetahString` from an owned `String` while preserving
@@ -427,9 +406,8 @@ impl CheetahString {
     /// Creates a `CheetahString` from an owned `String` using shared storage
     /// for long immutable strings.
     ///
-    /// This is the same storage policy used by `from_string` in the 1.x line.
-    /// Use `from_string_owned` when spare capacity should be preserved for
-    /// later mutation.
+    /// New code that needs clone-cheap immutable strings should prefer
+    /// `CheetahStr`.
     #[inline]
     pub fn from_string_shared(s: String) -> Self {
         if s.len() <= INLINE_CAPACITY {
@@ -475,18 +453,6 @@ impl CheetahString {
             Ok(s) => CheetahString::from_builder_string(s),
             Err(s) => CheetahString::from_slice(s.as_str()),
         }
-    }
-
-    #[inline]
-    #[cfg(feature = "bytes")]
-    #[deprecated(
-        since = "1.1.0",
-        note = "use try_from_bytes_buf for checked construction or from_utf8_unchecked_bytes_buf for an explicit unsafe constructor"
-    )]
-    pub fn from_bytes(b: bytes::Bytes) -> Self {
-        CheetahString::try_from_bytes_buf(b).expect(
-            "CheetahString::from_bytes requires valid UTF-8; use try_from_bytes_buf for fallible construction",
-        )
     }
 
     #[inline]

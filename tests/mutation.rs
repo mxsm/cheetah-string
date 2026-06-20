@@ -50,6 +50,20 @@ fn from_string_owned_preserves_spare_capacity_for_push() {
 }
 
 #[test]
+fn from_string_defaults_to_owned_policy_in_v2() {
+    let mut raw = String::with_capacity(128);
+    raw.push_str("hello");
+
+    let mut s = CheetahString::from_string(raw);
+    let before = s.as_bytes().as_ptr();
+
+    s.push_str(" world");
+
+    assert_eq!(s, "hello world");
+    assert_eq!(s.as_bytes().as_ptr(), before);
+}
+
+#[test]
 fn from_string_shared_keeps_long_immutable_inputs_clone_cheap() {
     let s = CheetahString::from_string_shared("a".repeat(128));
     let cloned = s.clone();

@@ -6,8 +6,8 @@
 //! `CheetahBuilder` is available for append-heavy construction.
 //! The `bytes` feature exposes `CheetahBytes` for byte-oriented data.
 //! It minimizes allocations across small, shared, and builder-oriented string workloads.
-//! The `from_string_owned` and `from_string_shared` constructors make owned
-//! mutation and clone-cheap sharing policies explicit.
+//! `from_string` preserves owned storage for mutable string workflows.
+//! Use `CheetahStr` for clone-cheap immutable values.
 //! Substring search uses `memchr`/`memmem` by default.
 //!
 //! # SIMD Acceleration
@@ -25,7 +25,7 @@
 //! To enable SIMD acceleration:
 //! ```toml
 //! [dependencies]
-//! cheetah-string = { version = "1.2.0", features = ["simd"] }  
+//! cheetah-string = { version = "2.0.0", features = ["simd"] }  
 //! ```
 //!
 //! # Examples
