@@ -972,6 +972,10 @@ impl CheetahString {
 
     #[inline]
     fn push_str_internal(&mut self, string: &str) {
+        if string.is_empty() {
+            return;
+        }
+
         match &mut self.inner {
             InnerString::Inline { len, data } => {
                 let total_len = *len as usize + string.len();
@@ -1039,6 +1043,10 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn reserve(&mut self, additional: usize) {
+        if additional == 0 {
+            return;
+        }
+
         match &mut self.inner {
             InnerString::Inline { len, .. } if *len as usize + additional <= INLINE_CAPACITY => {
                 return;
@@ -1202,28 +1210,9 @@ impl Add<&str> for CheetahString {
     /// assert_eq!(result, "Hello World");
     /// ```
     #[inline]
-    fn add(self, rhs: &str) -> Self::Output {
-        let total_len = self.len() + rhs.len();
-
-        // Fast path: result fits in inline storage
-        if total_len <= INLINE_CAPACITY {
-            let mut data = [0u8; INLINE_CAPACITY];
-            let self_bytes = self.as_bytes();
-            data[..self_bytes.len()].copy_from_slice(self_bytes);
-            data[self_bytes.len()..total_len].copy_from_slice(rhs.as_bytes());
-            return CheetahString {
-                inner: InnerString::Inline {
-                    len: total_len as u8,
-                    data,
-                },
-            };
-        }
-
-        // Slow path: allocate for long result
-        let mut result = String::with_capacity(total_len);
-        result.push_str(self.as_str());
-        result.push_str(rhs);
-        CheetahString::from_string(result)
+    fn add(mut self, rhs: &str) -> Self::Output {
+        self.push_str_internal(rhs);
+        self
     }
 }
 
@@ -1243,28 +1232,9 @@ impl Add<&CheetahString> for CheetahString {
     /// assert_eq!(result, "Hello World");
     /// ```
     #[inline]
-    fn add(self, rhs: &CheetahString) -> Self::Output {
-        let total_len = self.len() + rhs.len();
-
-        // Fast path: result fits in inline storage
-        if total_len <= INLINE_CAPACITY {
-            let mut data = [0u8; INLINE_CAPACITY];
-            let self_bytes = self.as_bytes();
-            data[..self_bytes.len()].copy_from_slice(self_bytes);
-            data[self_bytes.len()..total_len].copy_from_slice(rhs.as_bytes());
-            return CheetahString {
-                inner: InnerString::Inline {
-                    len: total_len as u8,
-                    data,
-                },
-            };
-        }
-
-        // Slow path: allocate for long result
-        let mut result = String::with_capacity(total_len);
-        result.push_str(self.as_str());
-        result.push_str(rhs.as_str());
-        CheetahString::from_string(result)
+    fn add(mut self, rhs: &CheetahString) -> Self::Output {
+        self.push_str_internal(rhs.as_str());
+        self
     }
 }
 
@@ -1283,28 +1253,13 @@ impl Add<String> for CheetahString {
     /// assert_eq!(result, "Hello World");
     /// ```
     #[inline]
-    fn add(self, rhs: String) -> Self::Output {
-        let total_len = self.len() + rhs.len();
-
-        // Fast path: result fits in inline storage
-        if total_len <= INLINE_CAPACITY {
-            let mut data = [0u8; INLINE_CAPACITY];
-            let self_bytes = self.as_bytes();
-            data[..self_bytes.len()].copy_from_slice(self_bytes);
-            data[self_bytes.len()..total_len].copy_from_slice(rhs.as_bytes());
-            return CheetahString {
-                inner: InnerString::Inline {
-                    len: total_len as u8,
-                    data,
-                },
-            };
+    fn add(mut self, rhs: String) -> Self::Output {
+        if self.is_empty() {
+            return CheetahString::from_string(rhs);
         }
 
-        // Slow path: allocate for long result
-        let mut result = String::with_capacity(total_len);
-        result.push_str(self.as_str());
-        result.push_str(&rhs);
-        CheetahString::from_string(result)
+        self.push_str_internal(&rhs);
+        self
     }
 }
 

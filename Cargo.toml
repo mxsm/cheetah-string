@@ -43,6 +43,10 @@ name = "layout"
 harness = false
 
 [[bench]]
+name = "mutation"
+harness = false
+
+[[bench]]
 name = "pattern"
 harness = false
 
