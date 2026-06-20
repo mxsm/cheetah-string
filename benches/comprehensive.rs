@@ -362,13 +362,13 @@ fn bench_internal_hot_paths(c: &mut Criterion) {
     });
 
     let long_bytes = vec![b'a'; 256];
-    group.bench_function("CheetahString::from(Vec<u8> 256B)", |b| {
-        b.iter(|| black_box(CheetahString::from(long_bytes.clone())))
+    group.bench_function("CheetahString::try_from_vec(256B)", |b| {
+        b.iter(|| black_box(CheetahString::try_from_vec(long_bytes.clone()).unwrap()))
     });
 
-    group.bench_function("String::from(CheetahString::from(Vec<u8> 256B))", |b| {
+    group.bench_function("String::from(CheetahString::try_from_vec(256B))", |b| {
         b.iter(|| {
-            let value = CheetahString::from(long_bytes.clone());
+            let value = CheetahString::try_from_vec(long_bytes.clone()).unwrap();
             black_box(String::from(value))
         })
     });

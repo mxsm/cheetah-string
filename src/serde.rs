@@ -1,10 +1,9 @@
-use crate::cheetah_string::InnerString;
 use crate::CheetahString;
 use alloc::string::String;
 use alloc::vec::Vec;
 use core::fmt;
 use core::str;
-use serde::de::{Error, Unexpected, Visitor};
+use serde::de::{Error, Visitor};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl Serialize for CheetahString {
@@ -12,20 +11,7 @@ impl Serialize for CheetahString {
     where
         S: Serializer,
     {
-        match &self.inner {
-            InnerString::Inline { len, data } => {
-                // Safety: InnerString::Inline guarantees that data[0..len] is valid UTF-8
-                let s = unsafe { str::from_utf8_unchecked(&data[..*len as usize]) };
-                serializer.serialize_str(s)
-            }
-            InnerString::StaticStr(s) => serializer.serialize_str(s),
-            InnerString::ArcStr(s) => serializer.serialize_str(s.as_ref()),
-            InnerString::Owned(s) => serializer.serialize_str(s.as_str()),
-            InnerString::ArcString(s) => serializer.serialize_str(s.as_str()),
-            InnerString::ArcVecString(s) => serializer.serialize_bytes(s),
-            #[cfg(feature = "bytes")]
-            InnerString::Bytes(bytes) => serializer.serialize_bytes(bytes.as_ref()),
-        }
+        serializer.serialize_str(self.as_str())
     }
 }
 
@@ -67,27 +53,25 @@ where
         where
             E: Error,
         {
-            Ok(CheetahString::from(v))
+            str::from_utf8(v)
+                .map(CheetahString::from_slice)
+                .map_err(Error::custom)
         }
 
         fn visit_borrowed_bytes<E>(self, v: &'a [u8]) -> Result<Self::Value, E>
         where
             E: Error,
         {
-            Ok(CheetahString::from(v))
+            str::from_utf8(v)
+                .map(CheetahString::from_slice)
+                .map_err(Error::custom)
         }
 
         fn visit_byte_buf<E>(self, v: Vec<u8>) -> Result<Self::Value, E>
         where
             E: Error,
         {
-            match String::from_utf8(v) {
-                Ok(s) => Ok(CheetahString::from_string(s)),
-                Err(e) => Err(Error::invalid_value(
-                    Unexpected::Bytes(&e.into_bytes()),
-                    &self,
-                )),
-            }
+            CheetahString::try_from_vec(v).map_err(Error::custom)
         }
     }
     deserializer.deserialize_str(CheetahStringVisitor)
