@@ -20,6 +20,15 @@ bench-results/
     topic.json
     properties.json
     remoting-header.json
+  packed-evidence/
+    YYYYMMDD-HHMMSS/
+      summary.md
+      packed-test.txt
+      packed-miri.txt
+      packed-asan.txt
+      fuzz-packed-from-bytes.txt
+      fuzz-packed-push-str.txt
+      packed-bench.txt
   summaries/
     summary-v1.1-v1.2.md
     summary-v1.2-v2-packed.md
@@ -51,3 +60,14 @@ On Windows PowerShell:
 ```powershell
 scripts/bench-all.ps1 current
 ```
+
+For the experimental packed representation evidence gate:
+
+```powershell
+scripts/verify-packed.ps1 -RunMiri -RunSanitizer -RunFuzz -RunBench
+```
+
+The packed evidence script always runs `cargo test --features experimental-packed`.
+The Miri, sanitizer, fuzz, and packed benchmark gates are opt-in because they
+require nightly components, optional cargo subcommands, target support, or more
+runtime than the default test suite.

@@ -19,6 +19,9 @@
 //! - `ends_with()` - Pattern suffix matching
 //! - Equality comparisons (`==`, `!=`)
 //!
+//! Substring search through `find()` and `contains()` continues to use
+//! `memchr`/`memmem`, which is the stable default search backend.
+//!
 //! The implementation automatically uses SIMD for strings >= 16 bytes and falls back to scalar operations
 //! for smaller inputs or when SIMD is not available.
 //!
@@ -44,7 +47,7 @@
 //!
 //! ```
 //!
-//! Using accelerated search operations:
+//! Using search operations:
 //! ```rust
 //! use cheetah_string::CheetahString;
 //!
@@ -66,6 +69,7 @@ mod builder;
 mod cheetah_str;
 mod cheetah_string;
 mod error;
+mod inline;
 mod search;
 
 #[cfg(feature = "bytes")]

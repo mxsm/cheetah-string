@@ -8,6 +8,8 @@ pub enum Error {
     Utf8Error(Utf8Error),
     /// Index out of bounds
     IndexOutOfBounds { index: usize, len: usize },
+    /// Invalid range where the start is greater than the end
+    InvalidRange { start: usize, end: usize },
     /// Invalid character boundary
     InvalidCharBoundary { index: usize },
 }
@@ -18,6 +20,9 @@ impl fmt::Display for Error {
             Error::Utf8Error(e) => write!(f, "UTF-8 error: {}", e),
             Error::IndexOutOfBounds { index, len } => {
                 write!(f, "index {} out of bounds (len: {})", index, len)
+            }
+            Error::InvalidRange { start, end } => {
+                write!(f, "range start {} is greater than end {}", start, end)
             }
             Error::InvalidCharBoundary { index } => {
                 write!(f, "index {} is not a char boundary", index)

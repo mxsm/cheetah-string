@@ -1,0 +1,27 @@
+﻿warning: linker stdout: 姝ｅ湪鍒涘缓搴?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_push_str.lib 鍜屽璞?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_push_str.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `cheetah-string-fuzz` (bin "fuzz_packed_push_str") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.03s
+warning: linker stdout: 姝ｅ湪鍒涘缓搴?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_push_str.lib 鍜屽璞?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_push_str.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `cheetah-string-fuzz` (bin "fuzz_packed_push_str") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `fuzz\target\x86_64-pc-windows-msvc\release\fuzz_packed_push_str.exe -artifact_prefix=C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\artifacts\fuzz_packed_push_str\ -runs=100 C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\corpus\fuzz_packed_push_str`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 503145824
+INFO: Loaded 1 modules   (359 inline 8-bit counters): 359 [00007FF6904D7088, 00007FF6904D71EF), 
+INFO: Loaded 1 PC tables (359 PCs): 359 [00007FF6904B6BD8,00007FF6904B8248), 
+INFO:        0 files found in C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\corpus\fuzz_packed_push_str
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: A corpus is not provided, starting from an empty corpus
+#2	INITED cov: 37 ft: 37 corp: 1/1b exec/s: 0 rss: 41Mb
+#6	NEW    cov: 41 ft: 41 corp: 2/3b lim: 4 exec/s: 0 rss: 41Mb L: 2/2 MS: 4 CrossOver-ChangeByte-CrossOver-CopyPart-
+#20	NEW    cov: 42 ft: 42 corp: 3/6b lim: 4 exec/s: 0 rss: 41Mb L: 3/3 MS: 4 ChangeBit-InsertByte-CopyPart-ChangeByte-
+#31	REDUCE cov: 42 ft: 42 corp: 3/5b lim: 4 exec/s: 0 rss: 41Mb L: 2/2 MS: 1 EraseBytes-
+#34	NEW    cov: 43 ft: 43 corp: 4/7b lim: 4 exec/s: 0 rss: 41Mb L: 2/2 MS: 3 ShuffleBytes-InsertByte-ChangeByte-
+#100	DONE   cov: 43 ft: 43 corp: 4/7b lim: 4 exec/s: 0 rss: 41Mb
+Done 100 runs in 0 second(s)

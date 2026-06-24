@@ -1,0 +1,280 @@
+﻿
+running 6 tests
+test cheetah_string::tests::long_borrowed_str_uses_shared_storage ... ok
+test cheetah_string::tests::with_capacity_above_inline_uses_heap_storage ... ok
+test cheetah_string::tests::push_str_promotes_builder_growth_to_owned_storage ... ok
+test cheetah_string::tests::try_from_vec_short_input_uses_inline_storage ... ok
+test cheetah_string::tests::long_vec_conversion_uses_owned_storage ... ok
+test packed::tests::packed_size_is_three_words ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 33 tests
+test test_add_assign_chain ... ok
+test test_add_assign_cheetah_string ... ok
+test test_add_assign_str ... ok
+test test_add_chain ... ok
+test test_lines ... ok
+test test_add_long_strings ... ok
+test test_add_sso_strings ... ok
+test test_add_str ... ok
+test test_add_string ... ok
+test test_chars ... ok
+test test_contains ... ok
+test test_empty_string_operations ... ok
+test test_add_cheetah_string ... ok
+test test_ends_with ... ok
+test test_find ... ok
+test test_add_empty_strings ... ok
+test test_repeat ... ok
+test test_replace ... ok
+test test_replacen ... ok
+test test_rfind ... ok
+test test_split ... ok
+test test_starts_with ... ok
+test test_substring ... ok
+test test_substring_invalid_range - should panic ... ok
+test test_to_lowercase ... ok
+test test_to_uppercase ... ok
+test test_trim ... ok
+test test_trim_end ... ok
+test test_trim_start ... ok
+test test_unicode_queries ... ok
+test test_unicode_split ... ok
+test test_unicode_transform ... ok
+test test_whitespace_operations ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 41 tests
+test test_as_ref_bytes ... ok
+test test_as_ref_str ... ok
+test test_borrow ... ok
+test test_clone ... ok
+test test_clone_arc_sharing ... ok
+test test_cow_owned ... ok
+test test_cow_static ... ok
+test test_debug ... ok
+test test_default ... ok
+test test_display ... ok
+test test_empty ... ok
+test test_eq ... ok
+test test_from_arc_string ... ok
+test test_from_char ... ok
+test test_deref ... ok
+test test_empty_string ... ok
+test test_from_iter_chars ... ok
+test test_from_iter_str ... ok
+test test_from_iter_string ... ok
+test test_from_static ... ok
+test test_from_str ... ok
+test test_from_string ... ok
+test test_from_string_ref ... ok
+test test_hash ... ok
+test test_into_string_copies_shared_arc_string_input ... ok
+test test_into_string_reuses_owned_arc_string_buffer_after_clone ... ok
+test test_into_string_reuses_owned_vec_buffer_after_clone ... ok
+test test_into_string_reuses_unique_arc_string_buffer ... ok
+test test_into_string_reuses_unique_vec_buffer ... ok
+test test_ord ... ok
+test test_parse ... ok
+test test_to_string ... ok
+test test_try_from_bytes_method ... ok
+test test_try_from_invalid_bytes ... ok
+test test_try_from_invalid_vec ... ok
+test test_try_from_slice_trait ... ok
+test test_try_from_valid_bytes ... ok
+test test_try_from_valid_vec ... ok
+test test_try_from_vec_method ... ok
+test test_try_from_vec_trait ... ok
+test test_unicode ... ok
+
+test result: ok. 41 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 8 tests
+test test_chars_double_ended ... ok
+test test_special_patterns ... ok
+test test_long_strings ... ok
+test test_split_str_reverse_panics - should panic ... ok
+test test_split_char_reverse ... ok
+test test_split_iterator_behavior ... ok
+test test_pattern_traits ... ok
+test test_unicode_split ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test layout_snapshot ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 8 tests
+test add_assign_uses_push_str_path ... ok
+test from_string_shared_keeps_long_immutable_inputs_clone_cheap ... ok
+test from_string_owned_preserves_spare_capacity_for_push ... ok
+test add_reuses_owned_lhs_capacity ... ok
+test inline_push_str_appends_in_place ... ok
+test owned_push_str_reuses_spare_capacity ... ok
+test reserve_zero_keeps_existing_buffer ... ok
+test from_string_defaults_to_owned_policy_in_v2 ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 6 tests
+test clone_is_independent_for_heap_storage ... ok
+test hash_matches_str_semantics ... ok
+test heap_string_roundtrips ... ok
+test inline_string_roundtrips ... ok
+test packed_layout_is_24_bytes ... ok
+test push_str_promotes_inline_to_heap ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 9 tests
+test pattern_tests::test_chars_double_ended ... ok
+test pattern_tests::test_ends_with_char ... ok
+test pattern_tests::test_chars_reverse ... ok
+test pattern_tests::test_contains_char ... ok
+test pattern_tests::test_combined_patterns ... ok
+test pattern_tests::test_split_char ... ok
+test pattern_tests::test_split_char_reverse ... ok
+test pattern_tests::test_split_str ... ok
+test pattern_tests::test_starts_with_char ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 5 tests
+test empty_needle_matches_str_find_semantics ... ok
+test memmem_search_reports_byte_indices ... ok
+test reusable_empty_finder_matches_start ... ok
+test reusable_finder_matches_repeated_needle ... ok
+test unicode_search_matches_str_indices ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 4 tests
+test test_empty_pattern ... ok
+test test_split_edge_cases ... ok
+test test_single_char_string_pattern_reverse_panics - should panic ... ok
+test test_string_pattern_consecutive_separators ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+
+running 22 tests
+test test_sso_as_bytes ... ok
+test test_sso_clone_short_string ... ok
+test test_sso_boundary_24_bytes ... ok
+test test_sso_boundary_23_bytes ... ok
+test test_sso_hash ... ok
+test test_sso_ordering ... ok
+test test_sso_empty ... ok
+test test_sso_empty_string ... ok
+test test_sso_from_char ... ok
+test test_sso_from_string ... ok
+test test_sso_long_string ... ok
+test test_sso_mixed_lengths ... ok
+test test_sso_display_debug ... ok
+test test_sso_short_string ... ok
+test test_sso_equality ... ok
+test test_sso_deref ... ok
+test test_sso_special_chars ... ok
+test test_sso_to_string ... ok
+test test_sso_try_from_bytes ... ok
+test test_sso_try_from_vec ... ok
+test test_sso_unicode_boundary ... ok
+test test_sso_unicode_short ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+
+running 5 tests
+test builder_finishes_to_clone_cheap_str ... ok
+test cheetah_str_works_as_hash_map_key ... ok
+test cheetah_str_keeps_long_clones_shared ... ok
+test builder_finishes_to_mutable_string_with_spare_capacity ... ok
+test cheetah_string_can_be_compacted_into_cheetah_str ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 34 tests
+test src\cheetah_string.rs - cheetah_string::CheetahString::ends_with (line 561) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::add_assign (line 1229) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::add (line 1163) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::lines (line 750) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::ends_with_char (line 590) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::chars (line 766) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::add (line 1184) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::find (line 652) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::add_assign (line 1247) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::push_str (line 981) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::contains_char (line 632) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::repeat (line 909) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::contains (line 610) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::replace (line 816) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::from (line 105) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::add (line 1206) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::replacen (line 831) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::reserve (line 1001) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::starts_with (line 513) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::rfind (line 669) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::starts_with_char (line 542) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::substring (line 852) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::to_uppercase (line 786) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::split (line 729) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::to_lowercase (line 801) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::trim_start (line 699) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::trim (line 684) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::trim_end (line 714) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::try_from_vec (line 280) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::try_from_bytes (line 303) ... ok
+test src\lib.rs - (line 37) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::try_substring (line 870) ... ok
+test src\cheetah_string.rs - cheetah_string::CheetahString::with_capacity (line 930) ... ok
+test src\lib.rs - (line 51) ... ok
+
+test result: ok. 34 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.11s
+
+   Compiling cheetah-string v2.0.0 (C:\Users\ljbmx\Desktop\mxsm\cheetah-string)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.52s
+     Running unittests src\lib.rs (target\debug\deps\cheetah_string-85f2889286d24cb9.exe)
+     Running tests\api_extensions.rs (target\debug\deps\api_extensions-bf40243e7bdd7ec0.exe)
+     Running tests\basic.rs (target\debug\deps\basic-38e8da84a7e8c294.exe)
+     Running tests\bytes.rs (target\debug\deps\bytes-68d85f4c017cdc53.exe)
+     Running tests\comprehensive_tests.rs (target\debug\deps\comprehensive_tests-8714d8fed17b3073.exe)
+     Running tests\layout_snapshot.rs (target\debug\deps\layout_snapshot-e73ee3d87ac5e868.exe)
+     Running tests\mutation.rs (target\debug\deps\mutation-aa2e72da69bb2617.exe)
+     Running tests\packed.rs (target\debug\deps\packed-b423d9b4183ee71c.exe)
+     Running tests\patterns.rs (target\debug\deps\patterns-2c2d1729d6e5d713.exe)
+     Running tests\search.rs (target\debug\deps\search-b551036e977c2369.exe)
+     Running tests\serde.rs (target\debug\deps\serde-bc2847d30396b160.exe)
+     Running tests\simd.rs (target\debug\deps\simd-63374949017eee43.exe)
+     Running tests\split_edge_cases.rs (target\debug\deps\split_edge_cases-b23b1b59afb216b1.exe)
+     Running tests\sso.rs (target\debug\deps\sso-ecea8e0eb4a2c69d.exe)
+     Running tests\type_split.rs (target\debug\deps\type_split-c825cd27b0045e57.exe)
+   Doc-tests cheetah_string
