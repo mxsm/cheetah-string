@@ -34,6 +34,13 @@ This document applies only to `feature = "experimental-packed"` and the
 - layout snapshot comparison against stable `CheetahString`
 - MQ workload benchmark comparison against stable `CheetahString`
 
+On Windows PowerShell, this command captures the required packed evidence under
+`bench-results/packed-evidence/<timestamp>/`:
+
+```powershell
+scripts/verify-packed.ps1 -RunMiri -RunSanitizer -RunFuzz -RunBench
+```
+
 ## Current Status
 
 The prototype is intentionally not wired into stable `CheetahString`. It is a

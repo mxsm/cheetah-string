@@ -6,11 +6,10 @@ use core::cmp::Ordering;
 use core::fmt;
 use core::hash::{Hash, Hasher};
 use core::ops::Deref;
-use core::str::{self, FromStr};
+use core::str::FromStr;
 
+use crate::inline::InlineStr;
 use crate::CheetahString;
-
-const INLINE_CAPACITY: usize = 23;
 
 /// Immutable, clone-cheap string value for key/name/topic style workloads.
 ///
@@ -25,10 +24,7 @@ pub struct CheetahStr {
 
 #[derive(Clone)]
 enum Repr {
-    Inline {
-        len: u8,
-        data: [u8; INLINE_CAPACITY],
-    },
+    Inline(InlineStr),
     Static(&'static str),
     Shared(Arc<str>),
 }
@@ -38,10 +34,7 @@ impl CheetahStr {
     #[inline]
     pub const fn empty() -> Self {
         Self {
-            inner: Repr::Inline {
-                len: 0,
-                data: [0; INLINE_CAPACITY],
-            },
+            inner: Repr::Inline(InlineStr::empty()),
         }
     }
 
@@ -62,14 +55,9 @@ impl CheetahStr {
     /// Creates an immutable string from a borrowed string slice.
     #[inline]
     pub fn from_slice(s: &str) -> Self {
-        if s.len() <= INLINE_CAPACITY {
-            let mut data = [0u8; INLINE_CAPACITY];
-            data[..s.len()].copy_from_slice(s.as_bytes());
+        if let Some(inline) = InlineStr::from_str(s) {
             Self {
-                inner: Repr::Inline {
-                    len: s.len() as u8,
-                    data,
-                },
+                inner: Repr::Inline(inline),
             }
         } else {
             Self {
@@ -81,8 +69,10 @@ impl CheetahStr {
     /// Creates an immutable string from owned storage.
     #[inline]
     pub fn from_string(s: String) -> Self {
-        if s.len() <= INLINE_CAPACITY {
-            Self::from_slice(&s)
+        if let Some(inline) = InlineStr::from_str(&s) {
+            Self {
+                inner: Repr::Inline(inline),
+            }
         } else {
             Self {
                 inner: Repr::Shared(s.into_boxed_str().into()),
@@ -94,10 +84,7 @@ impl CheetahStr {
     #[inline]
     pub fn as_str(&self) -> &str {
         match &self.inner {
-            Repr::Inline { len, data } => {
-                // SAFETY: Inline data is copied only from valid UTF-8 strings.
-                unsafe { str::from_utf8_unchecked(&data[..*len as usize]) }
-            }
+            Repr::Inline(inline) => inline.as_str(),
             Repr::Static(s) => s,
             Repr::Shared(s) => s.as_ref(),
         }

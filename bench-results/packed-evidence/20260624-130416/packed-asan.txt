@@ -1,0 +1,93 @@
+﻿
+running 1 test
+test packed::tests::packed_size_is_three_words ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.01s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 33 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 41 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+
+running 1 test
+test packed_layout_is_24_bytes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 9 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.15s
+     Running unittests src\lib.rs (target\debug\deps\cheetah_string-ef19ecdb4ae50af0.exe)
+     Running tests\api_extensions.rs (target\debug\deps\api_extensions-265ea9d412c4d589.exe)
+     Running tests\basic.rs (target\debug\deps\basic-5a9db4b2e7a37375.exe)
+     Running tests\bytes.rs (target\debug\deps\bytes-28bff98899307ff2.exe)
+     Running tests\comprehensive_tests.rs (target\debug\deps\comprehensive_tests-9762dbcc65ca96cf.exe)
+     Running tests\layout_snapshot.rs (target\debug\deps\layout_snapshot-178567cc15cd9278.exe)
+     Running tests\mutation.rs (target\debug\deps\mutation-261bb87b5dc079ef.exe)
+     Running tests\packed.rs (target\debug\deps\packed-4719a7e1f01d1234.exe)
+     Running tests\patterns.rs (target\debug\deps\patterns-4bb1c92062e3a356.exe)
+     Running tests\search.rs (target\debug\deps\search-70c948bc42af4b07.exe)
+     Running tests\serde.rs (target\debug\deps\serde-64c9281c5b632aae.exe)
+     Running tests\simd.rs (target\debug\deps\simd-9ebcc041882bf452.exe)
+     Running tests\split_edge_cases.rs (target\debug\deps\split_edge_cases-c696d0bfbb0ebff4.exe)
+     Running tests\sso.rs (target\debug\deps\sso-fe28e8b20a68cdd8.exe)
+     Running tests\type_split.rs (target\debug\deps\type_split-936df32e17a021ec.exe)

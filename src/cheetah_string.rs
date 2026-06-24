@@ -9,19 +9,24 @@ use core::hash::{Hash, Hasher};
 use core::ops::{Add, AddAssign, Deref};
 use core::str::{self, FromStr, Utf8Error};
 
+mod pattern;
+mod repr;
+
+use crate::inline::InlineStr;
+use pattern::StrPatternImpl;
+pub use pattern::{SplitPattern, SplitStr, SplitWrapper, StrPattern};
+use repr::{InnerString, INLINE_CAPACITY};
+
 #[derive(Clone)]
 #[repr(transparent)]
 pub struct CheetahString {
-    pub(super) inner: InnerString,
+    inner: InnerString,
 }
 
 impl Default for CheetahString {
     fn default() -> Self {
         CheetahString {
-            inner: InnerString::Inline {
-                len: 0,
-                data: [0; INLINE_CAPACITY],
-            },
+            inner: InnerString::Inline(InlineStr::empty()),
         }
     }
 }
@@ -166,11 +171,8 @@ impl From<CheetahString> for String {
     fn from(s: CheetahString) -> Self {
         match s {
             CheetahString {
-                inner: InnerString::Inline { len, data },
-            } => {
-                // SAFETY: Inline strings are always valid UTF-8
-                unsafe { String::from_utf8_unchecked(data[..len as usize].to_vec()) }
-            }
+                inner: InnerString::Inline(inline),
+            } => inline.into_string(),
             CheetahString {
                 inner: InnerString::Static(s),
             } => s.to_string(),
@@ -225,10 +227,7 @@ impl CheetahString {
     #[inline]
     pub const fn empty() -> Self {
         CheetahString {
-            inner: InnerString::Inline {
-                len: 0,
-                data: [0; INLINE_CAPACITY],
-            },
+            inner: InnerString::Inline(InlineStr::empty()),
         }
     }
 
@@ -258,18 +257,16 @@ impl CheetahString {
     #[inline]
     fn from_validated_vec_unchecked(s: Vec<u8>) -> Self {
         if s.len() <= INLINE_CAPACITY {
-            let mut data = [0u8; INLINE_CAPACITY];
-            data[..s.len()].copy_from_slice(&s);
-            CheetahString {
-                inner: InnerString::Inline {
-                    len: s.len() as u8,
-                    data,
-                },
-            }
-        } else {
             // SAFETY: Callers validate UTF-8 before reaching this helper.
-            CheetahString::from_builder_string(unsafe { String::from_utf8_unchecked(s) })
+            let value = unsafe { str::from_utf8_unchecked(&s) };
+            let inline = InlineStr::from_str(value).expect("short str must fit inline storage");
+            return CheetahString {
+                inner: InnerString::Inline(inline),
+            };
         }
+
+        // SAFETY: Callers validate UTF-8 before reaching this helper.
+        CheetahString::from_builder_string(unsafe { String::from_utf8_unchecked(s) })
     }
 
     /// Creates a `CheetahString` from a byte vector with UTF-8 validation.
@@ -368,15 +365,9 @@ impl CheetahString {
 
     #[inline]
     pub fn from_slice(s: &str) -> Self {
-        if s.len() <= INLINE_CAPACITY {
-            // Use inline storage for short strings
-            let mut data = [0u8; INLINE_CAPACITY];
-            data[..s.len()].copy_from_slice(s.as_bytes());
+        if let Some(inline) = InlineStr::from_str(s) {
             CheetahString {
-                inner: InnerString::Inline {
-                    len: s.len() as u8,
-                    data,
-                },
+                inner: InnerString::Inline(inline),
             }
         } else {
             // Use Arc<str> for long borrowed strings to avoid the extra String header.
@@ -410,15 +401,9 @@ impl CheetahString {
     /// `CheetahStr`.
     #[inline]
     pub fn from_string_shared(s: String) -> Self {
-        if s.len() <= INLINE_CAPACITY {
-            // Use inline storage for short strings
-            let mut data = [0u8; INLINE_CAPACITY];
-            data[..s.len()].copy_from_slice(s.as_bytes());
+        if let Some(inline) = InlineStr::from_str(&s) {
             CheetahString {
-                inner: InnerString::Inline {
-                    len: s.len() as u8,
-                    data,
-                },
+                inner: InnerString::Inline(inline),
             }
         } else {
             // Use Arc<str> for long strings to avoid double allocation
@@ -432,13 +417,9 @@ impl CheetahString {
     #[inline]
     fn from_builder_string(s: String) -> Self {
         if s.len() <= INLINE_CAPACITY && s.capacity() <= INLINE_CAPACITY {
-            let mut data = [0u8; INLINE_CAPACITY];
-            data[..s.len()].copy_from_slice(s.as_bytes());
+            let inline = InlineStr::from_str(&s).expect("short String must fit inline storage");
             CheetahString {
-                inner: InnerString::Inline {
-                    len: s.len() as u8,
-                    data,
-                },
+                inner: InnerString::Inline(inline),
             }
         } else {
             CheetahString {
@@ -483,11 +464,7 @@ impl CheetahString {
     #[inline]
     pub fn as_str(&self) -> &str {
         match &self.inner {
-            InnerString::Inline { len, data } => {
-                // SAFETY: Inline strings are only created from valid UTF-8 sources.
-                // The data is always valid UTF-8 up to len bytes.
-                unsafe { str::from_utf8_unchecked(&data[..*len as usize]) }
-            }
+            InnerString::Inline(inline) => inline.as_str(),
             InnerString::Static(s) => s,
             InnerString::Shared(s) => s.as_ref(),
             InnerString::Owned(s) => s.as_str(),
@@ -497,7 +474,7 @@ impl CheetahString {
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         match &self.inner {
-            InnerString::Inline { len, data } => &data[..*len as usize],
+            InnerString::Inline(inline) => inline.as_bytes(),
             InnerString::Static(s) => s.as_bytes(),
             InnerString::Shared(s) => s.as_bytes(),
             InnerString::Owned(s) => s.as_bytes(),
@@ -507,7 +484,7 @@ impl CheetahString {
     #[inline]
     pub fn len(&self) -> usize {
         match &self.inner {
-            InnerString::Inline { len, .. } => *len as usize,
+            InnerString::Inline(inline) => inline.len(),
             InnerString::Static(s) => s.len(),
             InnerString::Shared(s) => s.len(),
             InnerString::Owned(s) => s.len(),
@@ -517,7 +494,7 @@ impl CheetahString {
     #[inline]
     pub fn is_empty(&self) -> bool {
         match &self.inner {
-            InnerString::Inline { len, .. } => *len == 0,
+            InnerString::Inline(inline) => inline.is_empty(),
             InnerString::Static(s) => s.is_empty(),
             InnerString::Shared(s) => s.is_empty(),
             InnerString::Owned(s) => s.is_empty(),
@@ -624,8 +601,9 @@ impl CheetahString {
 
     /// Returns `true` if the string contains the given pattern.
     ///
-    /// When the `simd` feature is enabled, this method uses SIMD instructions
-    /// for improved performance on longer patterns.
+    /// This method uses the `memchr`/`memmem` search backend. The `simd`
+    /// feature currently accelerates equality, prefix, and suffix checks, not
+    /// substring search.
     ///
     /// # Examples
     ///
@@ -665,8 +643,9 @@ impl CheetahString {
 
     /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
     ///
-    /// When the `simd` feature is enabled, this method uses SIMD instructions
-    /// for improved performance on longer patterns.
+    /// This method uses the `memchr`/`memmem` search backend. The `simd`
+    /// feature currently accelerates equality, prefix, and suffix checks, not
+    /// substring search.
     ///
     /// # Examples
     ///
@@ -864,7 +843,9 @@ impl CheetahString {
     ///
     /// # Panics
     ///
-    /// Panics if the indices are not on valid UTF-8 character boundaries.
+    /// Panics if the range is out of bounds, inverted, or not on valid UTF-8
+    /// character boundaries. Use [`CheetahString::try_substring`] for a
+    /// recoverable error.
     ///
     /// # Examples
     ///
@@ -877,7 +858,48 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn substring(&self, start: usize, end: usize) -> CheetahString {
-        CheetahString::from_slice(&self.as_str()[start..end])
+        self.try_substring(start, end)
+            .expect("substring range must be in bounds and on UTF-8 character boundaries")
+    }
+
+    /// Returns a substring as a new `CheetahString`, or a public error when
+    /// the requested range is invalid.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("hello world");
+    /// assert_eq!(s.try_substring(0, 5).unwrap(), "hello");
+    /// assert!(s.try_substring(0, 20).is_err());
+    /// ```
+    #[inline]
+    pub fn try_substring(&self, start: usize, end: usize) -> crate::Result<CheetahString> {
+        let value = self.as_str();
+        let len = value.len();
+
+        if start > end {
+            return Err(crate::Error::InvalidRange { start, end });
+        }
+
+        if start > len {
+            return Err(crate::Error::IndexOutOfBounds { index: start, len });
+        }
+
+        if end > len {
+            return Err(crate::Error::IndexOutOfBounds { index: end, len });
+        }
+
+        if !value.is_char_boundary(start) {
+            return Err(crate::Error::InvalidCharBoundary { index: start });
+        }
+
+        if !value.is_char_boundary(end) {
+            return Err(crate::Error::InvalidCharBoundary { index: end });
+        }
+
+        Ok(CheetahString::from_slice(&value[start..end]))
     }
 
     /// Repeats the string `n` times.
@@ -928,11 +950,8 @@ impl CheetahString {
         }
 
         match &mut self.inner {
-            InnerString::Inline { len, data } => {
-                let total_len = *len as usize + string.len();
-                if total_len <= INLINE_CAPACITY {
-                    data[*len as usize..total_len].copy_from_slice(string.as_bytes());
-                    *len = total_len as u8;
+            InnerString::Inline(inline) => {
+                if inline.push_str(string) {
                     return;
                 }
             }
@@ -993,10 +1012,10 @@ impl CheetahString {
         }
 
         match &mut self.inner {
-            InnerString::Inline { len, .. } if *len as usize + additional <= INLINE_CAPACITY => {
+            InnerString::Inline(inline) if inline.len() + additional <= INLINE_CAPACITY => {
                 return;
             }
-            InnerString::Inline { .. } => {}
+            InnerString::Inline(_) => {}
             InnerString::Owned(s) => {
                 s.reserve(additional);
                 return;
@@ -1239,169 +1258,6 @@ impl AddAssign<&CheetahString> for CheetahString {
     }
 }
 
-/// Maximum capacity for inline string storage (23 bytes + 1 byte for length = 24 bytes total)
-const INLINE_CAPACITY: usize = 23;
-
-/// The `InnerString` enum represents different types of string storage.
-///
-/// This enum uses Small String Optimization (SSO) to avoid heap allocations for short strings.
-///
-/// Variants:
-///
-/// * `Inline` - Inline storage for strings <= 23 bytes (zero heap allocations).
-/// * `Static(&'static str)` - A static string slice (zero heap allocations).
-/// * `Shared(Arc<str>)` - A reference-counted string slice (single heap allocation, optimized).
-/// * `Owned(String)` - An owned heap string used for builder-style mutation.
-#[derive(Clone)]
-pub(super) enum InnerString {
-    /// Inline storage for short strings (up to 23 bytes).
-    /// Stores the length and data directly without heap allocation.
-    Inline {
-        len: u8,
-        data: [u8; INLINE_CAPACITY],
-    },
-    /// Static string slice with 'static lifetime.
-    Static(&'static str),
-    /// Reference-counted string slice (single heap allocation).
-    /// Preferred for long immutable strings created from owned or borrowed data.
-    Shared(Arc<str>),
-    /// Owned heap-allocated string used when exclusive mutability matters.
-    Owned(String),
-}
-
-// Sealed trait pattern to support both &str and char in starts_with/ends_with/contains
-mod private {
-    use alloc::string::String;
-
-    pub trait Sealed {}
-    impl Sealed for char {}
-    impl Sealed for &str {}
-    impl Sealed for &String {}
-
-    pub trait SplitSealed {}
-    impl SplitSealed for char {}
-    impl SplitSealed for &str {}
-}
-
-/// A pattern that can be used with `starts_with` and `ends_with` methods.
-pub trait StrPattern: private::Sealed {
-    #[doc(hidden)]
-    fn as_str_pattern(&self) -> StrPatternImpl<'_>;
-}
-
-#[doc(hidden)]
-pub enum StrPatternImpl<'a> {
-    Char(char),
-    Str(&'a str),
-}
-
-impl StrPattern for char {
-    #[inline]
-    fn as_str_pattern(&self) -> StrPatternImpl<'_> {
-        StrPatternImpl::Char(*self)
-    }
-}
-
-impl StrPattern for &str {
-    #[inline]
-    fn as_str_pattern(&self) -> StrPatternImpl<'_> {
-        StrPatternImpl::Str(self)
-    }
-}
-
-impl StrPattern for &String {
-    #[inline]
-    fn as_str_pattern(&self) -> StrPatternImpl<'_> {
-        StrPatternImpl::Str(self.as_str())
-    }
-}
-
-/// A pattern that can be used with `split` method.
-pub trait SplitPattern<'a>: private::SplitSealed {
-    #[doc(hidden)]
-    fn split_str(self, s: &'a str) -> SplitWrapper<'a>;
-}
-
-impl SplitPattern<'_> for char {
-    fn split_str(self, s: &str) -> SplitWrapper<'_> {
-        SplitWrapper::Char(s.split(self))
-    }
-}
-
-impl<'a> SplitPattern<'a> for &'a str {
-    fn split_str(self, s: &'a str) -> SplitWrapper<'a> {
-        let inner = match single_char_pattern(self) {
-            Some(ch) => SplitStrInner::Char(s.split(ch)),
-            None => SplitStrInner::Str(s.split(self)),
-        };
-
-        SplitWrapper::Str(SplitStr(inner))
-    }
-}
-
-/// Helper struct for splitting strings by a string pattern
-pub struct SplitStr<'a>(SplitStrInner<'a>);
-
-enum SplitStrInner<'a> {
-    Str(str::Split<'a, &'a str>),
-    Char(str::Split<'a, char>),
-}
-
-#[inline]
-fn single_char_pattern(pattern: &str) -> Option<char> {
-    let mut chars = pattern.chars();
-    let ch = chars.next()?;
-
-    if chars.next().is_none() {
-        Some(ch)
-    } else {
-        None
-    }
-}
-
-impl<'a> Iterator for SplitStr<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match &mut self.0 {
-            SplitStrInner::Str(iter) => iter.next(),
-            SplitStrInner::Char(iter) => iter.next(),
-        }
-    }
-}
-
-/// Wrapper for split iterator that supports both char and str patterns
-pub enum SplitWrapper<'a> {
-    #[doc(hidden)]
-    Char(str::Split<'a, char>),
-    #[doc(hidden)]
-    Str(SplitStr<'a>),
-}
-
-impl<'a> Iterator for SplitWrapper<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            SplitWrapper::Char(iter) => iter.next(),
-            SplitWrapper::Str(iter) => iter.next(),
-        }
-    }
-}
-
-impl<'a> DoubleEndedIterator for SplitWrapper<'a> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self {
-            SplitWrapper::Char(iter) => iter.next_back(),
-            SplitWrapper::Str(_) => {
-                // String pattern split doesn't support reverse iteration
-                // This is consistent with std::str::Split<&str>
-                panic!("split with string pattern does not support reverse iteration")
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1461,9 +1317,9 @@ mod tests {
         let s = CheetahString::try_from_vec(b"hello".to_vec()).expect("valid utf-8");
 
         match &s.inner {
-            InnerString::Inline { len, data } => {
-                assert_eq!(*len as usize, 5);
-                assert_eq!(&data[..5], b"hello");
+            InnerString::Inline(inline) => {
+                assert_eq!(inline.len(), 5);
+                assert_eq!(inline.as_bytes(), b"hello");
             }
             other => panic!(
                 "expected inline storage for short validated Vec<u8>, got {:?}",

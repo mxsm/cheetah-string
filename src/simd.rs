@@ -87,77 +87,6 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
     haystack.ends_with(needle)
 }
 
-/// Find the first occurrence of needle in haystack using SIMD when available
-#[allow(dead_code)]
-#[inline]
-pub(crate) fn find_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    if needle.is_empty() {
-        return Some(0);
-    }
-
-    let needle_len = needle.len();
-
-    if needle_len > haystack.len() {
-        return None;
-    }
-
-    if needle_len == 1 {
-        return find_first_byte(haystack, needle[0]);
-    }
-
-    if needle_len < SIMD_THRESHOLD {
-        return find_short_bytes(haystack, needle);
-    }
-
-    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-    {
-        if has_sse2() && needle_len >= SIMD_THRESHOLD && haystack.len() >= SIMD_THRESHOLD {
-            return unsafe { find_bytes_sse2(haystack, needle) };
-        }
-    }
-
-    // Fallback to standard search
-    haystack
-        .windows(needle_len)
-        .position(|window| window == needle)
-}
-
-#[allow(dead_code)]
-#[inline]
-fn find_first_byte(haystack: &[u8], needle: u8) -> Option<usize> {
-    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
-    {
-        if has_sse2() && haystack.len() >= SIMD_THRESHOLD {
-            return unsafe { find_byte_sse2(haystack, needle) };
-        }
-    }
-
-    haystack.iter().position(|&b| b == needle)
-}
-
-#[allow(dead_code)]
-#[inline]
-fn find_short_bytes(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    debug_assert!(needle.len() > 1 && needle.len() < SIMD_THRESHOLD);
-
-    let needle_len = needle.len();
-    let last_start = haystack.len() - needle_len;
-    let mut pos = 0;
-
-    while pos <= last_start {
-        let offset = find_first_byte(&haystack[pos..last_start + 1], needle[0])?;
-        let candidate = pos + offset;
-
-        if haystack[candidate + 1..candidate + needle_len] == needle[1..] {
-            return Some(candidate);
-        }
-
-        pos = candidate + 1;
-    }
-
-    None
-}
-
 // SIMD implementations for x86_64 with SSE2
 
 #[cfg(all(feature = "simd", target_arch = "x86_64"))]
@@ -193,80 +122,6 @@ unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
     true
 }
 
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[allow(dead_code)]
-#[target_feature(enable = "sse2")]
-#[inline]
-unsafe fn find_bytes_sse2(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    let haystack_len = haystack.len();
-    let needle_len = needle.len();
-
-    if needle_len > haystack_len {
-        return None;
-    }
-
-    // For small needles, use a simple SIMD approach
-    if needle_len == 1 {
-        return find_byte_sse2(haystack, needle[0]);
-    }
-
-    // For larger needles, use a hybrid approach
-    // First, search for the first byte of the needle
-    let first_byte = needle[0];
-    let mut pos = 0;
-
-    while pos + needle_len <= haystack_len {
-        // Find the next occurrence of the first byte
-        let offset = find_byte_sse2(&haystack[pos..], first_byte)?;
-        let candidate_pos = pos + offset;
-
-        // Check if the rest matches
-        if candidate_pos + needle_len <= haystack_len {
-            if eq_bytes_sse2(&haystack[candidate_pos..candidate_pos + needle_len], needle) {
-                return Some(candidate_pos);
-            }
-            pos = candidate_pos + 1;
-        } else {
-            return None;
-        }
-    }
-
-    None
-}
-
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
-#[allow(dead_code)]
-#[target_feature(enable = "sse2")]
-#[inline]
-unsafe fn find_byte_sse2(haystack: &[u8], needle: u8) -> Option<usize> {
-    let len = haystack.len();
-    let mut offset = 0;
-
-    // Broadcast the needle byte to all positions in the vector
-    let needle_vec = _mm_set1_epi8(needle as i8);
-
-    // Process 16 bytes at a time
-    while offset + 16 <= len {
-        let haystack_vec = _mm_loadu_si128(haystack.as_ptr().add(offset) as *const __m128i);
-        let cmp = _mm_cmpeq_epi8(haystack_vec, needle_vec);
-        let mask = _mm_movemask_epi8(cmp);
-
-        if mask != 0 {
-            // Found at least one match
-            let bit_pos = mask.trailing_zeros() as usize;
-            return Some(offset + bit_pos);
-        }
-
-        offset += 16;
-    }
-
-    // Handle remaining bytes
-    haystack[offset..len]
-        .iter()
-        .position(|&b| b == needle)
-        .map(|pos| offset + pos)
-}
-
 #[cfg(all(test, feature = "simd"))]
 mod tests {
     use super::*;
@@ -298,29 +153,6 @@ mod tests {
         assert!(ends_with_bytes(haystack, b"a test"));
         assert!(!ends_with_bytes(haystack, b"hello"));
         assert!(ends_with_bytes(haystack, b""));
-    }
-
-    #[test]
-    fn test_find_bytes() {
-        let haystack = b"hello world, this is a test";
-        assert_eq!(find_bytes(haystack, b"world"), Some(6));
-        assert_eq!(find_bytes(haystack, b"test"), Some(23));
-        assert_eq!(find_bytes(haystack, b"xyz"), None);
-        assert_eq!(find_bytes(haystack, b""), Some(0));
-        assert_eq!(find_bytes(b"aaabaaaab", b"aab"), Some(1));
-        assert_eq!(find_bytes(b"abcabcabcd", b"abcd"), Some(6));
-        assert_eq!(find_bytes(b"aaaaaa", b"aab"), None);
-    }
-
-    #[test]
-    fn test_find_byte() {
-        let haystack = b"hello world";
-        unsafe {
-            assert_eq!(find_byte_sse2(haystack, b'w'), Some(6));
-            assert_eq!(find_byte_sse2(haystack, b'h'), Some(0));
-            assert_eq!(find_byte_sse2(haystack, b'd'), Some(10));
-            assert_eq!(find_byte_sse2(haystack, b'x'), None);
-        }
     }
 
     #[test]

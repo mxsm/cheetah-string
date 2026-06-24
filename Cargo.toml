@@ -69,3 +69,8 @@ harness = false
 [[bench]]
 name = "simd"
 harness = false
+
+[[bench]]
+name = "packed"
+harness = false
+required-features = ["experimental-packed"]

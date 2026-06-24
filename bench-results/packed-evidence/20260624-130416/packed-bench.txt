@@ -1,0 +1,135 @@
+﻿packed_construction/CheetahString short
+                        time:   [9.6566 ns 9.7726 ns 9.9076 ns]
+                        change: [-1.9188% +1.3898% +4.6098%] (p = 0.41 > 0.05)
+                        No change in performance detected.
+Found 13 outliers among 100 measurements (13.00%)
+  12 (12.00%) high mild
+  1 (1.00%) high severe
+packed_construction/PackedCheetahString short
+                        time:   [24.627 ns 25.266 ns 25.947 ns]
+                        change: [+8.8753% +11.638% +14.563%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 9 outliers among 100 measurements (9.00%)
+  4 (4.00%) high mild
+  5 (5.00%) high severe
+packed_construction/CheetahString long
+                        time:   [33.496 ns 33.947 ns 34.421 ns]
+                        change: [+2.2096% +4.7316% +7.0119%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 11 outliers among 100 measurements (11.00%)
+  9 (9.00%) high mild
+  2 (2.00%) high severe
+packed_construction/PackedCheetahString long
+                        time:   [21.843 ns 22.464 ns 23.123 ns]
+                        change: [+5.9260% +8.5757% +11.188%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 8 outliers among 100 measurements (8.00%)
+  7 (7.00%) high mild
+  1 (1.00%) high severe
+
+packed_push_str/CheetahString inline append
+                        time:   [21.574 ns 21.770 ns 21.967 ns]
+                        change: [+2.5228% +3.8924% +5.0881%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+packed_push_str/PackedCheetahString inline append
+                        time:   [12.594 ns 12.698 ns 12.819 ns]
+                        change: [+0.5722% +1.7418% +2.8416%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+packed_push_str/CheetahString promote to heap
+                        time:   [52.082 ns 52.768 ns 53.515 ns]
+                        change: [-1.7095% +0.3918% +2.4332%] (p = 0.71 > 0.05)
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+packed_push_str/PackedCheetahString promote to heap
+                        time:   [68.553 ns 70.513 ns 72.384 ns]
+                        change: [-3.8334% -1.0159% +1.7525%] (p = 0.48 > 0.05)
+                        No change in performance detected.
+Found 3 outliers among 100 measurements (3.00%)
+  3 (3.00%) high mild
+
+packed_mq_topic_insert/CheetahString short topics
+                        time:   [33.419 碌s 34.183 碌s 35.004 碌s]
+                        thrpt:  [28.568 Melem/s 29.255 Melem/s 29.923 Melem/s]
+                 change:
+                        time:   [-0.1583% +2.5345% +5.4747%] (p = 0.08 > 0.05)
+                        thrpt:  [-5.1905% -2.4719% +0.1586%]
+                        No change in performance detected.
+Found 1 outliers among 100 measurements (1.00%)
+  1 (1.00%) high mild
+packed_mq_topic_insert/PackedCheetahString short topics
+                        time:   [52.003 碌s 53.170 碌s 54.214 碌s]
+                        thrpt:  [18.445 Melem/s 18.807 Melem/s 19.230 Melem/s]
+                 change:
+                        time:   [+3.6370% +7.3587% +11.110%] (p = 0.00 < 0.05)
+                        thrpt:  [-9.9992% -6.8543% -3.5093%]
+                        Performance has regressed.
+packed_mq_topic_insert/CheetahString long topics
+                        time:   [65.165 碌s 66.119 碌s 67.130 碌s]
+                        thrpt:  [14.896 Melem/s 15.124 Melem/s 15.346 Melem/s]
+                 change:
+                        time:   [+5.4655% +7.9547% +10.517%] (p = 0.00 < 0.05)
+                        thrpt:  [-9.5165% -7.3686% -5.1822%]
+                        Performance has regressed.
+packed_mq_topic_insert/PackedCheetahString long topics
+                        time:   [50.294 碌s 51.659 碌s 52.852 碌s]
+                        thrpt:  [18.921 Melem/s 19.358 Melem/s 19.883 Melem/s]
+                 change:
+                        time:   [-16.933% -14.191% -11.417%] (p = 0.00 < 0.05)
+                        thrpt:  [+12.889% +16.538% +20.384%]
+                        Performance has improved.
+
+   Compiling cheetah-string v2.0.0 (C:\Users\ljbmx\Desktop\mxsm\cheetah-string)
+    Finished `bench` profile [optimized] target(s) in 1.72s
+     Running benches\packed.rs (target\release\deps\packed-5044d38116574fc7.exe)
+Gnuplot not found, using plotters backend
+Benchmarking packed_construction/CheetahString short
+Benchmarking packed_construction/CheetahString short: Warming up for 3.0000 s
+Benchmarking packed_construction/CheetahString short: Collecting 100 samples in estimated 5.0000 s (533M iterations)
+Benchmarking packed_construction/CheetahString short: Analyzing
+Benchmarking packed_construction/PackedCheetahString short
+Benchmarking packed_construction/PackedCheetahString short: Warming up for 3.0000 s
+Benchmarking packed_construction/PackedCheetahString short: Collecting 100 samples in estimated 5.0001 s (203M iterations)
+Benchmarking packed_construction/PackedCheetahString short: Analyzing
+Benchmarking packed_construction/CheetahString long
+Benchmarking packed_construction/CheetahString long: Warming up for 3.0000 s
+Benchmarking packed_construction/CheetahString long: Collecting 100 samples in estimated 5.0000 s (147M iterations)
+Benchmarking packed_construction/CheetahString long: Analyzing
+Benchmarking packed_construction/PackedCheetahString long
+Benchmarking packed_construction/PackedCheetahString long: Warming up for 3.0000 s
+Benchmarking packed_construction/PackedCheetahString long: Collecting 100 samples in estimated 5.0000 s (223M iterations)
+Benchmarking packed_construction/PackedCheetahString long: Analyzing
+Benchmarking packed_push_str/CheetahString inline append
+Benchmarking packed_push_str/CheetahString inline append: Warming up for 3.0000 s
+Benchmarking packed_push_str/CheetahString inline append: Collecting 100 samples in estimated 5.0001 s (233M iterations)
+Benchmarking packed_push_str/CheetahString inline append: Analyzing
+Benchmarking packed_push_str/PackedCheetahString inline append
+Benchmarking packed_push_str/PackedCheetahString inline append: Warming up for 3.0000 s
+Benchmarking packed_push_str/PackedCheetahString inline append: Collecting 100 samples in estimated 5.0000 s (393M iterations)
+Benchmarking packed_push_str/PackedCheetahString inline append: Analyzing
+Benchmarking packed_push_str/CheetahString promote to heap
+Benchmarking packed_push_str/CheetahString promote to heap: Warming up for 3.0000 s
+Benchmarking packed_push_str/CheetahString promote to heap: Collecting 100 samples in estimated 5.0002 s (93M iterations)
+Benchmarking packed_push_str/CheetahString promote to heap: Analyzing
+Benchmarking packed_push_str/PackedCheetahString promote to heap
+Benchmarking packed_push_str/PackedCheetahString promote to heap: Warming up for 3.0000 s
+Benchmarking packed_push_str/PackedCheetahString promote to heap: Collecting 100 samples in estimated 5.0000 s (76M iterations)
+Benchmarking packed_push_str/PackedCheetahString promote to heap: Analyzing
+Benchmarking packed_mq_topic_insert/CheetahString short topics
+Benchmarking packed_mq_topic_insert/CheetahString short topics: Warming up for 3.0000 s
+Benchmarking packed_mq_topic_insert/CheetahString short topics: Collecting 100 samples in estimated 5.0949 s (146k iterations)
+Benchmarking packed_mq_topic_insert/CheetahString short topics: Analyzing
+Benchmarking packed_mq_topic_insert/PackedCheetahString short topics
+Benchmarking packed_mq_topic_insert/PackedCheetahString short topics: Warming up for 3.0000 s
+Benchmarking packed_mq_topic_insert/PackedCheetahString short topics: Collecting 100 samples in estimated 5.0093 s (106k iterations)
+Benchmarking packed_mq_topic_insert/PackedCheetahString short topics: Analyzing
+Benchmarking packed_mq_topic_insert/CheetahString long topics
+Benchmarking packed_mq_topic_insert/CheetahString long topics: Warming up for 3.0000 s
+Benchmarking packed_mq_topic_insert/CheetahString long topics: Collecting 100 samples in estimated 5.1416 s (76k iterations)
+Benchmarking packed_mq_topic_insert/CheetahString long topics: Analyzing
+Benchmarking packed_mq_topic_insert/PackedCheetahString long topics
+Benchmarking packed_mq_topic_insert/PackedCheetahString long topics: Warming up for 3.0000 s
+Benchmarking packed_mq_topic_insert/PackedCheetahString long topics: Collecting 100 samples in estimated 5.1184 s (96k iterations)
+Benchmarking packed_mq_topic_insert/PackedCheetahString long topics: Analyzing

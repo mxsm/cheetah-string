@@ -72,7 +72,7 @@ fn test_simd_ends_with() {
 }
 
 #[test]
-fn test_simd_contains() {
+fn test_contains_with_simd_feature_enabled() {
     let s = CheetahString::from("hello world, this is a test");
 
     // Short patterns
@@ -93,7 +93,7 @@ fn test_simd_contains() {
 }
 
 #[test]
-fn test_simd_find() {
+fn test_find_with_simd_feature_enabled() {
     let s = CheetahString::from("hello world, this is a test");
 
     // Short patterns
@@ -167,7 +167,7 @@ fn test_simd_boundary_conditions() {
 }
 
 #[test]
-fn test_simd_pattern_at_end() {
+fn test_search_pattern_at_end_with_simd_feature_enabled() {
     // Test finding pattern at the very end
     let s = CheetahString::from("aaaaaaaaaaaaaaab");
     assert_eq!(s.find("b"), Some(15));
@@ -180,7 +180,7 @@ fn test_simd_pattern_at_end() {
 }
 
 #[test]
-fn test_simd_multiple_occurrences() {
+fn test_search_multiple_occurrences_with_simd_feature_enabled() {
     // Test that find returns the first occurrence
     let s = CheetahString::from("abcabcabc");
     assert_eq!(s.find("abc"), Some(0));

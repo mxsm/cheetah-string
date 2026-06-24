@@ -1,0 +1,25 @@
+﻿warning: linker stdout: 姝ｅ湪鍒涘缓搴?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_from_bytes.lib 鍜屽璞?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_from_bytes.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `cheetah-string-fuzz` (bin "fuzz_packed_from_bytes") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.04s
+warning: linker stdout: 姝ｅ湪鍒涘缓搴?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_from_bytes.lib 鍜屽璞?C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\target\x86_64-pc-windows-msvc\release\deps\fuzz_packed_from_bytes.exp
+  |
+  = note: `#[warn(linker_messages)]` on by default
+
+warning: `cheetah-string-fuzz` (bin "fuzz_packed_from_bytes") generated 1 warning
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.01s
+     Running `fuzz\target\x86_64-pc-windows-msvc\release\fuzz_packed_from_bytes.exe -artifact_prefix=C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\artifacts\fuzz_packed_from_bytes\ -runs=100 C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\corpus\fuzz_packed_from_bytes`
+INFO: Running with entropic power schedule (0xFF, 100).
+INFO: Seed: 493125877
+INFO: Loaded 1 modules   (290 inline 8-bit counters): 290 [00007FF659A85EC8, 00007FF659A85FEA), 
+INFO: Loaded 1 PC tables (290 PCs): 290 [00007FF659A66BD8,00007FF659A67DF8), 
+INFO:        0 files found in C:\Users\ljbmx\Desktop\mxsm\cheetah-string\fuzz\corpus\fuzz_packed_from_bytes
+INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
+INFO: A corpus is not provided, starting from an empty corpus
+#2	INITED cov: 26 ft: 26 corp: 1/1b exec/s: 0 rss: 41Mb
+#4	NEW    cov: 27 ft: 27 corp: 2/3b lim: 4 exec/s: 0 rss: 41Mb L: 2/2 MS: 2 ChangeBit-InsertByte-
+#28	REDUCE cov: 27 ft: 27 corp: 2/2b lim: 4 exec/s: 0 rss: 41Mb L: 1/1 MS: 4 CrossOver-CopyPart-ChangeBinInt-EraseBytes-
+#100	DONE   cov: 27 ft: 27 corp: 2/2b lim: 4 exec/s: 0 rss: 41Mb
+Done 100 runs in 0 second(s)
