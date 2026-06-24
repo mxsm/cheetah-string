@@ -39,7 +39,7 @@ Minimum metadata for generated JSON artifacts:
 ```json
 {
   "crate": "cheetah-string",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "profile": "release",
   "target": "x86_64-unknown-linux-gnu",
   "rustc": "rustc 1.xx.x",

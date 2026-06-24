@@ -47,14 +47,14 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-cheetah-string = "2.0.0"
+cheetah-string = "2.1.0"
 ```
 
 ### Optional Features
 
 ```toml
 [dependencies]
-cheetah-string = { version = "2.0.0", features = ["bytes", "serde", "simd"] }
+cheetah-string = { version = "2.1.0", features = ["bytes", "serde", "simd"] }
 ```
 
 Available features:
