@@ -18,7 +18,7 @@ fn main() {
         let std_result: Vec<&str> = input.split(sep).collect();
 
         let cheetah = CheetahString::from(input);
-        let cheetah_result: Vec<&str> = cheetah.split(sep).collect();
+        let cheetah_result: Vec<&str> = cheetah.split_char(sep).collect();
 
         let match_str = if std_result == cheetah_result {
             "[OK]"
@@ -52,7 +52,7 @@ fn main() {
         let std_result: Vec<&str> = input.split(sep).collect();
 
         let cheetah = CheetahString::from(input);
-        let cheetah_result: Vec<&str> = cheetah.split(sep).collect();
+        let cheetah_result: Vec<&str> = cheetah.split_str(sep).collect();
 
         let match_str = if std_result == cheetah_result {
             "[OK]"

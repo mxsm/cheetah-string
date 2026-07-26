@@ -1,6 +1,6 @@
 use cheetah_string::CheetahString;
 use compact_str::CompactString;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use smartstring::alias::String as SmartString;
 
 fn header_fields() -> Vec<(&'static str, &'static str)> {
@@ -43,37 +43,53 @@ fn bench_header_encode(c: &mut Criterion) {
     group.throughput(Throughput::Elements(fields.len() as u64));
 
     group.bench_function("String", |b| {
-        b.iter(|| {
-            black_box(encode_pairs(
-                fields
-                    .iter()
-                    .map(|(key, value)| ((*key).to_string(), (*value).to_string())),
-            ))
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                black_box(encode_pairs(
+                    black_box(&fields)
+                        .iter()
+                        .map(|(key, value)| ((*key).to_string(), (*value).to_string())),
+                ))
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("CompactString", |b| {
-        b.iter(|| {
-            black_box(encode_pairs(fields.iter().map(|(key, value)| {
-                (CompactString::from(*key), CompactString::from(*value))
-            })))
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                black_box(encode_pairs(black_box(&fields).iter().map(
+                    |(key, value)| (CompactString::from(*key), CompactString::from(*value)),
+                )))
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("SmartString", |b| {
-        b.iter(|| {
-            black_box(encode_pairs(fields.iter().map(|(key, value)| {
-                (SmartString::from(*key), SmartString::from(*value))
-            })))
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                black_box(encode_pairs(black_box(&fields).iter().map(
+                    |(key, value)| (SmartString::from(*key), SmartString::from(*value)),
+                )))
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("CheetahString", |b| {
-        b.iter(|| {
-            black_box(encode_pairs(fields.iter().map(|(key, value)| {
-                (CheetahString::from(*key), CheetahString::from(*value))
-            })))
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                black_box(encode_pairs(black_box(&fields).iter().map(
+                    |(key, value)| (CheetahString::from(*key), CheetahString::from(*value)),
+                )))
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.finish();
@@ -85,60 +101,76 @@ fn bench_header_parse(c: &mut Criterion) {
     group.throughput(Throughput::Bytes(encoded.len() as u64));
 
     group.bench_function("String", |b| {
-        b.iter(|| {
-            let mut fields = Vec::new();
-            for line in encoded.lines() {
-                if let Some((key, value)) = line.split_once('=') {
-                    fields.push((black_box(key.to_string()), black_box(value.to_string())));
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut fields = Vec::new();
+                for line in black_box(encoded.as_str()).lines() {
+                    if let Some((key, value)) = line.split_once('=') {
+                        fields.push((black_box(key.to_string()), black_box(value.to_string())));
+                    }
                 }
-            }
-            black_box(fields)
-        })
+                black_box(fields)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("CompactString", |b| {
-        b.iter(|| {
-            let mut fields = Vec::new();
-            for line in encoded.lines() {
-                if let Some((key, value)) = line.split_once('=') {
-                    fields.push((
-                        black_box(CompactString::from(key)),
-                        black_box(CompactString::from(value)),
-                    ));
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut fields = Vec::new();
+                for line in black_box(encoded.as_str()).lines() {
+                    if let Some((key, value)) = line.split_once('=') {
+                        fields.push((
+                            black_box(CompactString::from(key)),
+                            black_box(CompactString::from(value)),
+                        ));
+                    }
                 }
-            }
-            black_box(fields)
-        })
+                black_box(fields)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("SmartString", |b| {
-        b.iter(|| {
-            let mut fields = Vec::new();
-            for line in encoded.lines() {
-                if let Some((key, value)) = line.split_once('=') {
-                    fields.push((
-                        black_box(SmartString::from(key)),
-                        black_box(SmartString::from(value)),
-                    ));
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut fields = Vec::new();
+                for line in black_box(encoded.as_str()).lines() {
+                    if let Some((key, value)) = line.split_once('=') {
+                        fields.push((
+                            black_box(SmartString::from(key)),
+                            black_box(SmartString::from(value)),
+                        ));
+                    }
                 }
-            }
-            black_box(fields)
-        })
+                black_box(fields)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("CheetahString", |b| {
-        b.iter(|| {
-            let mut fields = Vec::new();
-            for line in encoded.lines() {
-                if let Some((key, value)) = line.split_once('=') {
-                    fields.push((
-                        black_box(CheetahString::from(key)),
-                        black_box(CheetahString::from(value)),
-                    ));
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut fields = Vec::new();
+                for line in black_box(encoded.as_str()).lines() {
+                    if let Some((key, value)) = line.split_once('=') {
+                        fields.push((
+                            black_box(CheetahString::from(key)),
+                            black_box(CheetahString::from(value)),
+                        ));
+                    }
                 }
-            }
-            black_box(fields)
-        })
+                black_box(fields)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.finish();

@@ -1,4 +1,3 @@
-use alloc::string::String;
 use alloc::sync::Arc;
 
 use crate::inline::InlineStr;
@@ -13,7 +12,6 @@ pub(super) use crate::inline::INLINE_CAPACITY;
 /// * `Inline` - Inline storage for strings <= 23 bytes (zero heap allocations).
 /// * `Static(&'static str)` - A static string slice (zero heap allocations).
 /// * `Shared(Arc<str>)` - A reference-counted string slice (single heap allocation, optimized).
-/// * `Owned(String)` - An owned heap string used for builder-style mutation.
 #[derive(Clone)]
 pub(super) enum InnerString {
     /// Inline storage for short strings (up to 23 bytes).
@@ -24,6 +22,4 @@ pub(super) enum InnerString {
     /// Reference-counted string slice (single heap allocation).
     /// Preferred for long immutable strings created from owned or borrowed data.
     Shared(Arc<str>),
-    /// Owned heap-allocated string used when exclusive mutability matters.
-    Owned(String),
 }

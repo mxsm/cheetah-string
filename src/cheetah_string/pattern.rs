@@ -48,35 +48,58 @@ impl StrPattern for &String {
     }
 }
 
-/// A pattern that can be used with `split` method.
+/// A compatibility pattern whose iterator type exposes its capabilities.
+///
+/// Unlike the legacy v2 erased iterator, this associated type cannot promise
+/// reverse iteration for string patterns and therefore cannot panic from an
+/// unsupported `next_back()` call.
 pub trait SplitPattern<'a>: private::SplitSealed {
+    /// Iterator produced for this pattern.
+    type Iter: Iterator<Item = &'a str>;
+
     #[doc(hidden)]
-    fn split_str(self, s: &'a str) -> SplitWrapper<'a>;
+    fn split_pattern(self, value: &'a str) -> Self::Iter;
 }
 
-impl SplitPattern<'_> for char {
-    fn split_str(self, s: &str) -> SplitWrapper<'_> {
-        SplitWrapper::Char(s.split(self))
+impl<'a> SplitPattern<'a> for char {
+    type Iter = str::Split<'a, char>;
+
+    #[inline]
+    fn split_pattern(self, value: &'a str) -> Self::Iter {
+        value.split(self)
     }
 }
 
-impl<'a> SplitPattern<'a> for &'a str {
-    fn split_str(self, s: &'a str) -> SplitWrapper<'a> {
-        let inner = match single_char_pattern(self) {
-            Some(ch) => SplitStrInner::Char(s.split(ch)),
-            None => SplitStrInner::Str(s.split(self)),
-        };
+impl<'a, 'p> SplitPattern<'a> for &'p str {
+    type Iter = SplitStr<'a, 'p>;
 
-        SplitWrapper::Str(SplitStr(inner))
+    #[inline]
+    fn split_pattern(self, value: &'a str) -> Self::Iter {
+        SplitStr::new(value, self)
     }
 }
 
 /// Helper struct for splitting strings by a string pattern.
-pub struct SplitStr<'a>(SplitStrInner<'a>);
+///
+/// This iterator is intentionally forward-only because Rust's standard string
+/// pattern splitter does not support reverse iteration for `&str` patterns.
+pub struct SplitStr<'a, 'p>(SplitStrInner<'a, 'p>);
 
-enum SplitStrInner<'a> {
-    Str(str::Split<'a, &'a str>),
+enum SplitStrInner<'a, 'p> {
+    Str(str::Split<'a, &'p str>),
     Char(str::Split<'a, char>),
+}
+
+impl<'a, 'p> SplitStr<'a, 'p> {
+    #[inline]
+    pub(super) fn new(value: &'a str, pattern: &'p str) -> Self {
+        let inner = match single_char_pattern(pattern) {
+            Some(ch) => SplitStrInner::Char(value.split(ch)),
+            None => SplitStrInner::Str(value.split(pattern)),
+        };
+
+        Self(inner)
+    }
 }
 
 #[inline]
@@ -91,44 +114,13 @@ fn single_char_pattern(pattern: &str) -> Option<char> {
     }
 }
 
-impl<'a> Iterator for SplitStr<'a> {
+impl<'a, 'p> Iterator for SplitStr<'a, 'p> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
             SplitStrInner::Str(iter) => iter.next(),
             SplitStrInner::Char(iter) => iter.next(),
-        }
-    }
-}
-
-/// Wrapper for split iterator that supports both char and str patterns.
-pub enum SplitWrapper<'a> {
-    #[doc(hidden)]
-    Char(str::Split<'a, char>),
-    #[doc(hidden)]
-    Str(SplitStr<'a>),
-}
-
-impl<'a> Iterator for SplitWrapper<'a> {
-    type Item = &'a str;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self {
-            SplitWrapper::Char(iter) => iter.next(),
-            SplitWrapper::Str(iter) => iter.next(),
-        }
-    }
-}
-
-impl<'a> DoubleEndedIterator for SplitWrapper<'a> {
-    fn next_back(&mut self) -> Option<Self::Item> {
-        match self {
-            SplitWrapper::Char(iter) => iter.next_back(),
-            SplitWrapper::Str(_) => {
-                // String pattern split doesn't support reverse iteration.
-                panic!("split with string pattern does not support reverse iteration")
-            }
         }
     }
 }

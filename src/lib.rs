@@ -1,72 +1,69 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#![deny(unsafe_op_in_unsafe_fn)]
 
-//! No more relying solely on the standard library's String! CheetahString is a versatile string type that can store static and dynamic strings.
-//! It is usable in both `std` and `no_std` environments. Additionally, CheetahString supports serde for serialization and deserialization.
-//! `CheetahStr` is available for immutable clone-cheap string values, and
-//! `CheetahBuilder` is available for append-heavy construction.
-//! The `bytes` feature exposes `CheetahBytes` for byte-oriented data.
-//! It minimizes allocations across small, shared, and builder-oriented string workloads.
-//! `from_string` preserves owned storage for mutable string workflows.
-//! Use `CheetahStr` for clone-cheap immutable values.
-//! Substring search uses `memchr`/`memmem` by default.
+//! An immutable, clone-cheap UTF-8 value for latency-sensitive systems.
 //!
-//! # SIMD Acceleration
+//! [`CheetahString`] has one constructor-independent value contract:
 //!
-//! When compiled with the `simd` feature flag, CheetahString uses SIMD (Single Instruction, Multiple Data)
-//! instructions to accelerate selected byte comparisons on x86_64 platforms with SSE2 support.
-//! SIMD acceleration is applied to:
-//! - `starts_with()` - Pattern prefix matching
-//! - `ends_with()` - Pattern suffix matching
-//! - Equality comparisons (`==`, `!=`)
+//! - values up to 23 bytes are stored inline;
+//! - static values borrow their `&'static str`;
+//! - other long values use a shared `Arc<str>` backing.
+//!
+//! Long clones are bounded O(1) and allocate zero times. Append-heavy
+//! construction belongs to [`CheetahBuilder`]; call
+//! [`CheetahBuilder::finish`] to freeze the value or
+//! [`CheetahBuilder::into_string`] when mutation or spare capacity must
+//! continue. `from_string` freezes its input and does not retain a mutable
+//! `String` representation.
+//!
+//! The crate supports `no_std + alloc`. Optional `serde` integration preserves
+//! the text contract, while the `bytes` feature exposes [`CheetahBytes`] for
+//! byte-oriented data. Byte-to-text conversion validates and copies; only
+//! `bytes::Bytes <-> CheetahBytes` is zero-copy.
+//!
+//! # Split capability
+//!
+//! [`CheetahString::split_char`] returns a double-ended standard iterator.
+//! [`CheetahString::split_str`] is forward-only, so unsupported reverse
+//! iteration fails at compile time rather than panicking at runtime.
+//!
+//! # Search and experimental SIMD
+//!
+//! Stable builds delegate equality, prefix, and suffix comparisons to the
+//! standard slice/`str` implementations so the compiler and standard library
+//! select the best portable strategy. The `experimental-simd` feature exposes
+//! an x86_64 SSE2 experiment for controlled benchmarking only. The deprecated
+//! `simd` feature remains an alpha compatibility alias.
 //!
 //! Substring search through `find()` and `contains()` continues to use
 //! `memchr`/`memmem`, which is the stable default search backend.
 //!
-//! The implementation automatically uses SIMD for strings >= 16 bytes and falls back to scalar operations
-//! for smaller inputs or when SIMD is not available.
+//! To opt into the isolated experiment:
 //!
-//! To enable SIMD acceleration:
 //! ```toml
 //! [dependencies]
-//! cheetah-string = { version = "2.1.0", features = ["simd"] }
+//! cheetah-string = { version = "=3.0.0-alpha.1", features = ["experimental-simd"] }
 //! ```
 //!
-//! # Examples
+//! # Example
 //!
-//! Basic usage:
 //! ```rust
-//! use cheetah_string::CheetahString;
+//! use cheetah_string::{CheetahBuilder, CheetahString};
 //!
+//! let topic = CheetahString::from_static_str("orders");
+//! assert!(topic.starts_with("ord"));
 //!
-//!  let s = CheetahString::from("Hello, world!");
+//! let mut builder = CheetahBuilder::with_capacity(32);
+//! builder.push_str(topic.as_str());
+//! builder.push('@');
+//! builder.push_str("group-a");
 //!
-//!  let s2:&'static str = "Hello, world!";
-//!  let s3 = CheetahString::from_static_str(s2);
-//!
-//!  let s4 = CheetahString::new();
-//!
+//! let route = builder.finish();
+//! assert_eq!(route, "orders@group-a");
 //! ```
-//!
-//! Using search operations:
-//! ```rust
-//! use cheetah_string::CheetahString;
-//!
-//! let url = CheetahString::from("https://api.example.com/v1/users");
-//!
-//! // Substring search uses memchr/memmem by default.
-//! if url.starts_with("https://") {
-//!     println!("Secure connection");
-//! }
-//!
-//! if url.contains("api") {
-//!     println!("API endpoint");
-//! }
-//! ```
-//!
 extern crate alloc;
 
 mod builder;
-mod cheetah_str;
 mod cheetah_string;
 mod error;
 mod inline;
@@ -79,17 +76,23 @@ mod cheetah_bytes;
 #[cfg(feature = "serde")]
 mod serde;
 
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
+#[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
 mod simd;
 
 #[cfg(feature = "experimental-packed")]
 pub mod packed;
 
 #[cfg(feature = "bytes")]
-pub use cheetah_bytes::CheetahBytes;
+pub use cheetah_bytes::{CheetahBytes, FromUtf8BytesError};
 
 pub use builder::CheetahBuilder;
-pub use cheetah_str::CheetahStr;
-pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, SplitWrapper, StrPattern};
+pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, StrPattern};
 pub use error::{Error, Result};
 pub use search::CheetahFinder;
+
+/// Deprecated v3 compatibility name for [`CheetahString`].
+///
+/// `CheetahString` is now itself immutable and clone-cheap, so a second value
+/// type no longer carries a distinct contract.
+#[deprecated(since = "3.0.0", note = "use CheetahString")]
+pub type CheetahStr = CheetahString;

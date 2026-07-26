@@ -1,12 +1,12 @@
 use alloc::string::String;
 use core::fmt;
 
-use crate::{CheetahStr, CheetahString};
+use crate::CheetahString;
 
 /// Append-heavy builder for constructing Cheetah string values.
 ///
-/// `CheetahBuilder` keeps mutable construction separate from immutable
-/// clone-cheap `CheetahStr` values and stable string values.
+/// `CheetahBuilder` keeps mutable construction separate from immutable,
+/// clone-cheap [`CheetahString`] values.
 #[derive(Clone, Default)]
 pub struct CheetahBuilder {
     inner: String,
@@ -83,17 +83,23 @@ impl CheetahBuilder {
         self.inner.capacity()
     }
 
-    /// Finishes into a mutable string value, preserving spare capacity when it
-    /// is useful for subsequent mutation.
+    /// Freezes this builder into the canonical clone-cheap string value.
+    ///
+    /// Use [`CheetahBuilder::into_string`] when construction is followed by
+    /// more mutation or when spare capacity must be retained.
     #[inline]
-    pub fn finish_string(self) -> CheetahString {
-        CheetahString::from_string_owned(self.inner)
+    pub fn finish(self) -> CheetahString {
+        CheetahString::from_string(self.inner)
     }
 
-    /// Finishes into an immutable clone-cheap string value.
+    /// Freezes the builder into the canonical clone-cheap string value.
+    ///
+    /// This compatibility name is retained so downstream v2 consumers can
+    /// adopt the immutable v3 core without a source migration.
+    #[deprecated(since = "3.0.0", note = "use finish()")]
     #[inline]
-    pub fn finish_str(self) -> CheetahStr {
-        CheetahStr::from_string(self.inner)
+    pub fn finish_string(self) -> CheetahString {
+        self.finish()
     }
 
     /// Returns the owned `String` backing this builder.

@@ -1,254 +1,217 @@
-# 🐆 CheetahString
+# CheetahString
 
 [![Crates.io](https://img.shields.io/crates/v/cheetah-string.svg)](https://crates.io/crates/cheetah-string)
 [![Documentation](https://docs.rs/cheetah-string/badge.svg)](https://docs.rs/cheetah-string)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/mxsm/cheetah-string)
 [![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
 
-**A lightweight, high-performance string type optimized for real-world use cases.**
+`CheetahString` is an immutable, clone-cheap UTF-8 value for latency-sensitive
+systems. It stores short text inline, keeps static text allocation-free, and
+shares long dynamic text through `Arc<str>`. The same value contract works with
+`std` and `no_std + alloc`.
 
-CheetahString is a versatile string type that goes beyond the standard library's `String`, providing zero-allocation optimizations for common patterns and seamless interoperability with various string representations. It's designed for both `std` and `no_std` environments.
+Version `3.0.0-alpha.1` is the opt-in preview of the immutable architecture.
 
-## ✨ Features
+## Design contract
 
-- **🚀 Zero-Allocation Optimization**
-  - Small String Optimization (SSO): Strings ≤ 23 bytes stored inline (no heap allocation)
-  - Static string support with `'static` lifetime
-  - Efficient Arc-based sharing for larger strings
+| Storage | Condition | Construction allocation | Clone allocation |
+|---|---|---:|---:|
+| Inline | UTF-8 length ≤ 23 bytes | 0 | 0 |
+| Static | `&'static str` | 0 | 0 |
+| Shared | Other long text | 1 live backing allocation | 0 |
 
-- **🔧 Rich API**
-  - Type split: `CheetahStr` for immutable clone-cheap keys and `CheetahBuilder` for append-heavy construction
-  - Query methods: `starts_with`, `ends_with`, `contains`, `find`, `rfind`
-  - Transformation: `to_uppercase`, `to_lowercase`, `replace`, `trim`
-  - Iteration: `split`, `lines`, `chars`
-  - Builder pattern: `with_capacity`, `push_str`, `reserve`
-  - String concatenation with `+` and `+=` operators
+The representation has no mutable `Owned(String)` state. Construction history
+therefore cannot change clone complexity. Use:
 
-- **🌐 Flexible Integration**
-  - Optional `bytes` support for zero-copy interop with the `bytes` crate
-  - Optional `serde` support for serialization/deserialization
-  - `no_std` compatible (requires `alloc`)
+- `CheetahString` for protocol text, immutable fields, and collection keys;
+- `CheetahBuilder` for append-heavy construction followed by `finish()`;
+- standard `String` when mutation or spare capacity must continue;
+- `CheetahBytes` for byte semantics when the optional `bytes` feature is active.
 
-- **⚡ Performance Focused**
-  - Optimized for common string operations
-  - Reduced memory allocations via intelligent internal representation
-  - `memchr`/`memmem` substring search by default
-  - Optional SIMD acceleration for selected byte comparisons (x86_64 SSE2)
-  - Benchmarked against standard library types
+## Installation
 
-- **🛡️ Safe & Correct**
-  - UTF-8 validation with safe constructors (`try_from_bytes`, `try_from_vec`)
-  - Comprehensive test coverage
-  - Well-documented API with examples
-
-## 📦 Installation
-
-Add this to your `Cargo.toml`:
+Opt into the alpha explicitly:
 
 ```toml
 [dependencies]
-cheetah-string = "2.1.0"
+cheetah-string = "=3.0.0-alpha.1"
 ```
 
-### Optional Features
+With optional integrations:
 
 ```toml
 [dependencies]
-cheetah-string = { version = "2.1.0", features = ["bytes", "serde", "simd"] }
+cheetah-string = {
+  version = "=3.0.0-alpha.1",
+  features = ["serde", "bytes"]
+}
 ```
 
-Available features:
-- `std` (default): Enable standard library support
-- `bytes`: `CheetahBytes` and integration with the `bytes` crate
-- `serde`: Serialization support via serde
-- `simd`: SIMD-accelerated string operations (x86_64 SSE2)
-- `experimental-packed`: Experimental packed representation prototype
+The minimum supported Rust version is 1.75.
 
-## 🚀 Quick Start
+## Quick start
 
 ```rust
-use cheetah_string::{CheetahBuilder, CheetahStr, CheetahString};
+use cheetah_string::{CheetahBuilder, CheetahString};
 
-// Create from various sources
-let s1 = CheetahString::from("hello");           // From &str
-let s2 = CheetahString::from(String::from("world")); // From String
-let s3 = CheetahString::from_static_str("static");   // From 'static str (zero-cost)
+let inline = CheetahString::from("orders");
+let static_value = CheetahString::from_static_str("system-topic");
+let shared = CheetahString::from_string("long-dynamic-value-".repeat(8));
+let cloned = shared.clone();
 
-// Small strings (≤ 23 bytes) use no heap allocation
-let small = CheetahString::from("short");  // Stored inline!
+assert_eq!(inline, "orders");
+assert_eq!(static_value, "system-topic");
+assert_eq!(shared, cloned);
+assert_eq!(shared.as_bytes().as_ptr(), cloned.as_bytes().as_ptr());
 
-// String operations
-let s = CheetahString::from("Hello, World!");
-assert!(s.starts_with("Hello"));  // Supports &str
-assert!(s.starts_with('H'));      // Also supports char
-assert!(s.contains("World"));
-assert!(s.contains('W'));
-assert_eq!(s.to_lowercase(), "hello, world!");
+let mut builder = CheetahBuilder::with_capacity(64);
+builder.push_str("orders");
+builder.push('@');
+builder.push_str("group-a");
+let route_key = builder.finish();
 
-// Concatenation
-let greeting = CheetahString::from("Hello");
-let name = CheetahString::from(" Rust");
-let message = greeting + name.as_str();  // "Hello Rust"
-
-// Builder pattern for efficient construction
-let mut string_builder = CheetahString::with_capacity(100);
-string_builder.push_str("Hello");
-string_builder.push_str(", ");
-string_builder.push_str("World!");
-
-// Explicit String storage policy
-let mut owned = CheetahString::from_string_owned(String::with_capacity(128));
-owned.push_str("capacity-preserving");
-let shared = CheetahString::from_string_shared("clone-cheap".repeat(16));
-
-// v2 type split
-let topic = CheetahStr::from_static_str("orders-created");
-let mut route_builder = CheetahBuilder::with_capacity(64);
-route_builder.push_str(topic.as_str());
-route_builder.push_str(":partition-0");
-let route_key = route_builder.finish_str();
-
-// Safe UTF-8 validation
-let bytes = b"hello";
-let s = CheetahString::try_from_bytes(bytes).unwrap();
+assert_eq!(route_key, "orders@group-a");
 ```
 
-## 📊 Performance
+When mutation continues, keep the builder's `String`:
 
-CheetahString is designed with performance in mind:
+```rust
+use cheetah_string::CheetahBuilder;
 
-- **Small String Optimization (SSO)**: Strings up to 23 bytes are stored inline without heap allocation
-- **Efficient Sharing**: Large immutable strings use `Arc<str>` for cheap cloning
-- **Fast Builders**: Capacity-preserving builder paths use owned heap storage for direct mutation
-- **Optimized Operations**: Common operations like concatenation have fast-path implementations
-- **Search Acceleration**: Substring search uses `memchr`/`memmem` by default. With the `simd` feature, selected byte comparisons such as prefix, suffix, and equality paths can use SSE2 on x86_64 platforms.
-
-Run benchmarks:
-```bash
-cargo bench
-
-# With SIMD feature
-cargo bench --features simd
+let mut builder = CheetahBuilder::with_capacity(128);
+builder.push_str("orders");
+let mut value = builder.into_string();
+value.push_str("@group-a");
 ```
 
-## 🔍 Internal Representation
+## Search and split
 
-CheetahString intelligently chooses the most efficient storage:
+Equality, prefix, and suffix checks use Rust's portable slice/`str` paths.
+Substring search uses `memchr`/`memmem`.
 
-| String Type | Storage | Heap Allocations | Use Case |
-|-------------|---------|------------------|----------|
-| ≤ 23 bytes | Inline (SSO) | 0 | Short strings, identifiers |
-| Static | `&'static str` | 0 | String literals |
-| Shared | `Arc<str>` | 1 | Long immutable strings, shared data |
-| Owned | `String` | 1 | Reserved capacity, repeated mutation |
-| Bytes | `CheetahBytes` | 1 | Byte-oriented network buffers (with feature) |
+Iterator capabilities are explicit:
 
-For new code, use:
+```rust
+use cheetah_string::CheetahString;
 
-| Type | Role |
-|------|------|
-| `CheetahStr` | Immutable clone-cheap values such as topics, groups, names, and keys |
-| `CheetahString` | Mutable string value with owned `String` construction semantics |
-| `CheetahBuilder` | Append-heavy construction followed by `finish_string()` or `finish_str()` |
-| `CheetahFinder` | Reusable substring search |
-| `CheetahBytes` | Byte semantics without a UTF-8 promise |
+let value = CheetahString::from("a::b::c");
+let forward: Vec<_> = value.split_str("::").collect();
+assert_eq!(forward, ["a", "b", "c"]);
 
-## 🔧 API Overview
+let csv = CheetahString::from("a,b,c");
+let reverse: Vec<_> = csv.split_char(',').rev().collect();
+assert_eq!(reverse, ["c", "b", "a"]);
+```
 
-### Construction
-- `new()`, `empty()`, `default()` - Create empty strings
-- `from(s)` - From `&str`, `String`, `&String`, `char`, etc.
-- `from_static_str(s)` - Zero-cost wrapper for `'static str`
-- `from_string(s)` - From owned `String`, preserving ownership and spare capacity for mutation
-- `from_string_owned(s)` - Same owned construction policy as `from_string`
-- `from_string_shared(s)` - Convert long owned strings to clone-cheap shared storage; prefer `CheetahStr` for new immutable-key code
-- `try_from_bytes(b)` - Safe construction from bytes with UTF-8 validation
-- `CheetahStr` - Immutable clone-cheap string companion
-- `CheetahBuilder` - Append-heavy builder companion
-- `CheetahBytes` - Byte-oriented companion type available with the `bytes` feature
-- `with_capacity(n)` - Pre-allocate capacity
+`split_str` is intentionally forward-only. Unsupported reverse iteration fails
+at compile time instead of panicking at runtime.
 
-### 2.0 Migration Notes
+## Bytes interoperability
 
-- Removed deprecated safe byte constructors: `from_vec`, `from_arc_vec`, and `from_bytes`.
-- Use `try_from_vec`, `try_from_arc_vec`, `try_from_bytes`, or `try_from_bytes_buf` for checked UTF-8 construction.
-- Use `from_utf8_unchecked_vec`, `from_utf8_unchecked_arc_vec`, `from_utf8_unchecked_bytes`, or `from_utf8_unchecked_bytes_buf` only when the caller can prove valid UTF-8.
-- Use `CheetahStr` for immutable clone-cheap keys and `CheetahBuilder` for append-heavy construction.
+The ownership boundary is explicit:
 
-### Query Methods
-- `len()`, `is_empty()`, `as_str()`, `as_bytes()`
-- `starts_with()`, `ends_with()`, `contains()` - Support both `&str` and `char` patterns
-- `find()`, `rfind()`
+| Conversion | UTF-8 validation | Payload copy |
+|---|---:|---:|
+| `bytes::Bytes -> CheetahBytes` | No | No |
+| `CheetahBytes -> bytes::Bytes` | No | No |
+| `Bytes -> CheetahString::try_from` | Yes | Yes |
+| `CheetahBytes -> CheetahString::try_from` | Yes | Yes |
+| `Bytes -> CheetahString::try_copy_from_bytes` | Yes | Yes |
+| `&CheetahBytes -> try_copy_to_cheetah_string` | Yes | Yes |
 
-### Transformation
-- `to_uppercase()`, `to_lowercase()`
-- `replace()`, `replacen()`
-- `trim()`, `trim_start()`, `trim_end()`
-- `substring()`, `repeat()`
+```rust
+use bytes::Bytes;
+use cheetah_string::{CheetahBytes, CheetahString};
 
-### Iteration
-- `chars()` - Iterate over characters (double-ended iterator)
-- `split()` - Split by pattern (supports `&str` and `char`)
-- `lines()` - Iterate over lines
+let raw = Bytes::from_static(b"orders");
+let bytes = CheetahBytes::from(raw);
+let text = bytes.try_copy_to_cheetah_string().unwrap();
+assert_eq!(text, "orders");
 
-### Mutation
-- `push_str()` - Append string slice
-- `reserve()` - Reserve additional capacity
+let invalid = Bytes::from_static(&[0xff]);
+let error = CheetahString::try_copy_from_bytes(invalid.clone()).unwrap_err();
+assert_eq!(error.into_bytes(), invalid);
+```
 
-### Operators
-- `+` - Concatenation
-- `+=` - Append in-place (optimized)
-- `==`, `!=` - Equality comparison with `str`, `String`, etc.
+The full executable contract is in
+[`docs/bytes-interop.md`](docs/bytes-interop.md).
 
-## 🎯 Use Cases
+## Features
 
-CheetahString is ideal for:
+| Feature | Default | Contract |
+|---|---:|---|
+| `std` | Yes | Standard-library integration |
+| `serde` | No | Serialization and deserialization |
+| `bytes` | No | `CheetahBytes` and explicit byte/text conversion |
+| `experimental-simd` | No | Isolated x86_64 SSE2 benchmark path; not recommended for production |
+| `simd` | No | Deprecated alpha compatibility alias for `experimental-simd` |
+| `experimental-packed` | No | Unstable packed-representation prototype |
 
-- **High-performance servers**: Reduce allocations in hot paths
-- **Memory-constrained environments**: Efficient memory usage with SSO
-- **Network protocols**: Integration with `bytes` crate
-- **Configuration systems**: Fast handling of static and dynamic strings
-- **No-std applications**: Embedded systems and WASM
+Optional features do not change the stable `CheetahString` layout.
 
-## 🏗️ Projects Using CheetahString
+## Performance evidence
 
-- [**RocketMQ Rust**](https://github.com/mxsm/rocketmq-rust) - Apache RocketMQ Rust implementation
-
-## 🤝 Contributing
-
-Contributions are welcome! Here's how you can help:
-
-1. **Report Issues**: Found a bug? [Open an issue](https://github.com/mxsm/cheetah-string/issues)
-2. **Submit PRs**: Improvements and bug fixes are appreciated
-3. **Add Benchmarks**: Help us track performance across use cases
-4. **Improve Documentation**: Better docs help everyone
-
-### Development Setup
+The repository includes RocketMQ-shaped Criterion workloads for property
+building, remoting-header parsing, topic insertion and lookup, plus explicit
+layout and allocation contracts. Blocking timing decisions run only on a
+dedicated fixed CPU with two reversed base/head rounds.
 
 ```bash
-# Clone the repository
-git clone https://github.com/mxsm/cheetah-string.git
-cd cheetah-string
-
-# Run tests
-cargo test
-
-# Run benchmarks
-cargo bench
-
-# Run with all features
-cargo test --all-features
+cargo test --test layout_snapshot --all-features
+cargo test --test allocation_contract --all-features -- --test-threads=1
+cargo bench --bench comprehensive
+cargo bench --bench mq_properties
+cargo bench --bench mq_remoting_header
+cargo bench --bench mq_topic
 ```
 
-## 📝 License
+Thresholds, metadata requirements, and reproduction commands are documented in
+[`docs/performance-gates.md`](docs/performance-gates.md). Hosted-runner and local
+benchmark results are diagnostic; they do not independently establish a
+release-grade performance pass.
 
-This project is licensed under either of:
+The architecture/optimization design scores 96/100 only when all 14 versioned
+conditions are evidenced. PR performance may pass while that aggregate remains
+incomplete; final comparison only certifies its performance scope, while
+release verification fails closed on every missing live attestation. See the
+[release evidence discovery contract](bench-results/release/README.md).
 
-- Apache License, Version 2.0 ([LICENSE](LICENSE) or http://www.apache.org/licenses/LICENSE-2.0)
-- MIT license ([LICENSE-MIT](LICENSE-MIT) or http://opensource.org/licenses/MIT)
+## Safety and portability
 
-at your option.
+Every deterministic CI run covers formatting, Clippy, Rust 1.75, all features,
+`no_std`, exact layout, and allocation contracts. Nightly validation adds Miri,
+Linux AddressSanitizer, transition fuzzing, and split differential fuzzing.
 
-## 🙏 Acknowledgments
+The unsafe constructors are explicitly named and require the caller to prove
+UTF-8 validity. Safe byte constructors validate before creating text.
 
-CheetahString is inspired by the need for a flexible, high-performance string type in Rust that bridges the gap between `String`, `&str`, `Arc<str>`, and specialized types like `bytes::Bytes`.
+The historical local diagnostic record, with its own candidate identity,
+execution counts, exclusions, and SHA-256 log digests, is in
+[`bench-results/safety/2026-07-26-local/summary.md`](bench-results/safety/2026-07-26-local/summary.md).
+Historical downstream compile and representative-test diagnostics are in the
+[archived crater summary](bench-results/crater/rocketmq-6d286fadd/summary.md).
+Neither record substitutes for an exact-candidate release attestation. The
+stable unsafe-site inventory is in
+[`docs/stable-unsafe-audit.md`](docs/stable-unsafe-audit.md).
+
+## Migration and architecture
+
+- [v2 to v3 migration](docs/migration-v2-to-v3.md)
+- [ADR 001: immutable canonical value](docs/adr/001-immutable-cheetah-string.md)
+- [ADR 002: bytes copy boundary](docs/adr/002-bytes-copy-boundary.md)
+- [ADR 003: SIMD policy](docs/adr/003-simd-policy.md)
+- [ADR 004: split capability](docs/adr/004-split-iterator-capability.md)
+- [ADR 005: performance gates](docs/adr/005-performance-gates.md)
+- [ADR 006: rejected packed boundary](docs/adr/006-experimental-packed-boundary.md)
+
+The v3 alpha temporarily retains several deprecated v2 spellings so large
+read-only consumers can validate the new representation incrementally.
+Deprecated names do not retain mutable v2 semantics.
+
+## Projects using CheetahString
+
+- [RocketMQ Rust](https://github.com/mxsm/rocketmq-rust)
+
+## License
+
+Licensed under either of Apache License 2.0 or MIT, at your option.

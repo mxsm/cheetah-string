@@ -1,6 +1,8 @@
 use cheetah_string::CheetahString;
 use compact_str::CompactString;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
+use criterion::{
+    black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
+};
 use smartstring::alias::String as SmartString;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -19,53 +21,73 @@ fn bench_topic_insert(c: &mut Criterion) {
     group.throughput(Throughput::Elements(TOPIC_COUNT as u64));
 
     group.bench_function("String", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(TOPIC_COUNT);
-            for (idx, topic) in topics.iter().enumerate() {
-                map.insert(black_box(topic.clone()), idx);
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(TOPIC_COUNT);
+                for (idx, topic) in black_box(&topics).iter().enumerate() {
+                    map.insert(black_box(topic.clone()), idx);
+                }
+                black_box(map)
+            },
+            BatchSize::LargeInput,
+        )
     });
 
     group.bench_function("Arc<str>", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(TOPIC_COUNT);
-            for (idx, topic) in topics.iter().enumerate() {
-                map.insert(black_box(Arc::<str>::from(topic.as_str())), idx);
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(TOPIC_COUNT);
+                for (idx, topic) in black_box(&topics).iter().enumerate() {
+                    map.insert(black_box(Arc::<str>::from(topic.as_str())), idx);
+                }
+                black_box(map)
+            },
+            BatchSize::LargeInput,
+        )
     });
 
     group.bench_function("CompactString", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(TOPIC_COUNT);
-            for (idx, topic) in topics.iter().enumerate() {
-                map.insert(black_box(CompactString::from(topic.as_str())), idx);
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(TOPIC_COUNT);
+                for (idx, topic) in black_box(&topics).iter().enumerate() {
+                    map.insert(black_box(CompactString::from(topic.as_str())), idx);
+                }
+                black_box(map)
+            },
+            BatchSize::LargeInput,
+        )
     });
 
     group.bench_function("SmartString", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(TOPIC_COUNT);
-            for (idx, topic) in topics.iter().enumerate() {
-                map.insert(black_box(SmartString::from(topic.as_str())), idx);
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(TOPIC_COUNT);
+                for (idx, topic) in black_box(&topics).iter().enumerate() {
+                    map.insert(black_box(SmartString::from(topic.as_str())), idx);
+                }
+                black_box(map)
+            },
+            BatchSize::LargeInput,
+        )
     });
 
     group.bench_function("CheetahString", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(TOPIC_COUNT);
-            for (idx, topic) in topics.iter().enumerate() {
-                map.insert(black_box(CheetahString::from(topic.as_str())), idx);
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(TOPIC_COUNT);
+                for (idx, topic) in black_box(&topics).iter().enumerate() {
+                    map.insert(black_box(CheetahString::from(topic.as_str())), idx);
+                }
+                black_box(map)
+            },
+            BatchSize::LargeInput,
+        )
     });
 
     group.finish();
@@ -106,7 +128,10 @@ fn bench_topic_lookup(c: &mut Criterion) {
     ];
 
     let mut group = c.benchmark_group("mq_topic_lookup");
-    group.throughput(Throughput::Elements(needles.len() as u64));
+    // Each Criterion iteration performs exactly one lookup. The surrounding
+    // loop registers three distinct benchmark IDs; it does not execute three
+    // lookups per iteration.
+    group.throughput(Throughput::Elements(1));
 
     for needle in needles {
         group.bench_with_input(BenchmarkId::new("String", needle), needle, |b, needle| {

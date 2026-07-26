@@ -1,6 +1,6 @@
 [package]
 name = "cheetah-string"
-version = "2.1.0"
+version = "3.0.0"
 authors = ["mxsm <mxsm@apache.org>"]
 edition = "2021"
 homepage = "https://github.com/mxsm/cheetah-string"
@@ -11,8 +11,19 @@ categories = ["network-programming"]
 readme = "README.md"
 rust-version = "1.75.0"
 description = """
-A lightweight, high-performance string manipulation library optimized for speed-sensitive applications
+An immutable, clone-cheap UTF-8 string with explicit construction and byte interoperability
 """
+exclude = [
+    "bench-results/packed-evidence/**",
+    "bench-results/usage-inventory/**",
+    "bench-results/base/**",
+    "bench-results/head/**",
+    "bench-results/current/**",
+    "bench-results/frozen/**",
+    "bench-results/final/**",
+    "bench-results/fixed-r*/**",
+    "bench-results/comparisons/**",
+]
 
 [dependencies]
 bytes = { version = "1.10.0", optional = true, default-features = false }
@@ -25,7 +36,10 @@ std = ["memchr/std"]
 serde = ["dep:serde", "serde/alloc"]
 bytes = ["dep:bytes"]
 experimental-packed = []
-simd = []
+experimental-simd = []
+# Deprecated v2 compatibility alias retained for the v3 alpha migration window.
+# Prefer `experimental-simd`.
+simd = ["experimental-simd"]
 
 [dev-dependencies]
 compact_str = "0.8"
@@ -68,6 +82,10 @@ harness = false
 
 [[bench]]
 name = "simd"
+harness = false
+
+[[bench]]
+name = "shared_backing"
 harness = false
 
 [[bench]]

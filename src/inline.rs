@@ -54,19 +54,6 @@ impl InlineStr {
     }
 
     #[inline]
-    pub(crate) fn push_str(&mut self, value: &str) -> bool {
-        let current_len = self.len();
-        let total_len = current_len + value.len();
-        if total_len > INLINE_CAPACITY {
-            return false;
-        }
-
-        self.data[current_len..total_len].copy_from_slice(value.as_bytes());
-        self.len = total_len as u8;
-        true
-    }
-
-    #[inline]
     pub(crate) fn into_string(self) -> String {
         // SAFETY: InlineStr is only constructed from valid UTF-8 strings.
         unsafe { String::from_utf8_unchecked(self.as_bytes().to_vec()) }

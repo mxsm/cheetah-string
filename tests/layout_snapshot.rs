@@ -56,7 +56,20 @@ fn layout_snapshot() {
 
     println!("{snapshot}");
 
-    assert!(size_of::<CheetahString>() >= size_of::<usize>());
-    assert!(align_of::<CheetahString>() >= align_of::<usize>());
-    assert!(size_of::<Option<CheetahString>>() >= size_of::<CheetahString>());
+    #[cfg(target_pointer_width = "64")]
+    {
+        assert_eq!(size_of::<CheetahString>(), 32);
+        assert_eq!(size_of::<Option<CheetahString>>(), 32);
+        assert_eq!(align_of::<CheetahString>(), 8);
+    }
+
+    #[cfg(target_pointer_width = "32")]
+    {
+        // Measured on i686-pc-windows-msvc. InlineStr alone occupies 24 bytes,
+        // so the enum discriminant and 4-byte alignment produce a 28-byte
+        // representation on 32-bit targets.
+        assert_eq!(size_of::<CheetahString>(), 28);
+        assert_eq!(size_of::<Option<CheetahString>>(), 28);
+        assert_eq!(align_of::<CheetahString>(), 4);
+    }
 }

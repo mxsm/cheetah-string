@@ -1,6 +1,6 @@
 use cheetah_string::CheetahString;
 use compact_str::CompactString;
-use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
 use smartstring::alias::String as SmartString;
 use std::collections::HashMap;
 
@@ -35,55 +35,71 @@ fn bench_property_build(c: &mut Criterion) {
     group.throughput(Throughput::Elements(props.len() as u64));
 
     group.bench_function("String", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(props.len());
-            for (key, value) in &props {
-                map.insert(
-                    black_box((*key).to_string()),
-                    black_box((*value).to_string()),
-                );
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(props.len());
+                for (key, value) in black_box(&props) {
+                    map.insert(
+                        black_box((*key).to_string()),
+                        black_box((*value).to_string()),
+                    );
+                }
+                black_box(map)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("CompactString", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(props.len());
-            for (key, value) in &props {
-                map.insert(
-                    black_box(CompactString::from(*key)),
-                    black_box(CompactString::from(*value)),
-                );
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(props.len());
+                for (key, value) in black_box(&props) {
+                    map.insert(
+                        black_box(CompactString::from(*key)),
+                        black_box(CompactString::from(*value)),
+                    );
+                }
+                black_box(map)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("SmartString", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(props.len());
-            for (key, value) in &props {
-                map.insert(
-                    black_box(SmartString::from(*key)),
-                    black_box(SmartString::from(*value)),
-                );
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(props.len());
+                for (key, value) in black_box(&props) {
+                    map.insert(
+                        black_box(SmartString::from(*key)),
+                        black_box(SmartString::from(*value)),
+                    );
+                }
+                black_box(map)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("CheetahString", |b| {
-        b.iter(|| {
-            let mut map = HashMap::with_capacity(props.len());
-            for (key, value) in &props {
-                map.insert(
-                    black_box(CheetahString::from(*key)),
-                    black_box(CheetahString::from(*value)),
-                );
-            }
-            black_box(map)
-        })
+        b.iter_batched(
+            || (),
+            |_| {
+                let mut map = HashMap::with_capacity(props.len());
+                for (key, value) in black_box(&props) {
+                    map.insert(
+                        black_box(CheetahString::from(*key)),
+                        black_box(CheetahString::from(*value)),
+                    );
+                }
+                black_box(map)
+            },
+            BatchSize::SmallInput,
+        )
     });
 
     group.finish();
@@ -113,34 +129,34 @@ fn bench_property_lookup(c: &mut Criterion) {
 
     group.bench_function("String", |b| {
         b.iter(|| {
-            black_box(string_map.get("UNIQ_KEY"));
-            black_box(string_map.get("TAGS"));
-            black_box(string_map.get("PGROUP"));
-            black_box(string_map.get("MISSING"))
+            black_box(black_box(&string_map).get(black_box("UNIQ_KEY")));
+            black_box(black_box(&string_map).get(black_box("TAGS")));
+            black_box(black_box(&string_map).get(black_box("PGROUP")));
+            black_box(black_box(&string_map).get(black_box("MISSING")))
         })
     });
     group.bench_function("CompactString", |b| {
         b.iter(|| {
-            black_box(compact_map.get("UNIQ_KEY"));
-            black_box(compact_map.get("TAGS"));
-            black_box(compact_map.get("PGROUP"));
-            black_box(compact_map.get("MISSING"))
+            black_box(black_box(&compact_map).get(black_box("UNIQ_KEY")));
+            black_box(black_box(&compact_map).get(black_box("TAGS")));
+            black_box(black_box(&compact_map).get(black_box("PGROUP")));
+            black_box(black_box(&compact_map).get(black_box("MISSING")))
         })
     });
     group.bench_function("SmartString", |b| {
         b.iter(|| {
-            black_box(smart_map.get("UNIQ_KEY"));
-            black_box(smart_map.get("TAGS"));
-            black_box(smart_map.get("PGROUP"));
-            black_box(smart_map.get("MISSING"))
+            black_box(black_box(&smart_map).get(black_box("UNIQ_KEY")));
+            black_box(black_box(&smart_map).get(black_box("TAGS")));
+            black_box(black_box(&smart_map).get(black_box("PGROUP")));
+            black_box(black_box(&smart_map).get(black_box("MISSING")))
         })
     });
     group.bench_function("CheetahString", |b| {
         b.iter(|| {
-            black_box(cheetah_map.get("UNIQ_KEY"));
-            black_box(cheetah_map.get("TAGS"));
-            black_box(cheetah_map.get("PGROUP"));
-            black_box(cheetah_map.get("MISSING"))
+            black_box(black_box(&cheetah_map).get(black_box("UNIQ_KEY")));
+            black_box(black_box(&cheetah_map).get(black_box("TAGS")));
+            black_box(black_box(&cheetah_map).get(black_box("PGROUP")));
+            black_box(black_box(&cheetah_map).get(black_box("MISSING")))
         })
     });
 

@@ -7,8 +7,11 @@ edition = "2021"
 [package.metadata]
 cargo-fuzz = true
 
+[features]
+packed = ["cheetah-string/experimental-packed"]
+
 [dependencies]
-cheetah-string = { path = "..", features = ["experimental-packed"] }
+cheetah-string = { path = "..", features = ["bytes"] }
 libfuzzer-sys = "0.4"
 
 [[bin]]
@@ -17,10 +20,26 @@ path = "fuzz_targets/packed_from_bytes.rs"
 test = false
 doc = false
 bench = false
+required-features = ["packed"]
 
 [[bin]]
 name = "fuzz_packed_push_str"
 path = "fuzz_targets/packed_push_str.rs"
+test = false
+doc = false
+bench = false
+required-features = ["packed"]
+
+[[bin]]
+name = "cheetah_string_transitions"
+path = "fuzz_targets/cheetah_string_transitions.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "split_differential"
+path = "fuzz_targets/split_differential.rs"
 test = false
 doc = false
 bench = false

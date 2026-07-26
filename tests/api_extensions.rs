@@ -1,4 +1,4 @@
-use cheetah_string::CheetahString;
+use cheetah_string::{CheetahBuilder, CheetahString};
 
 // Query methods tests
 
@@ -81,15 +81,15 @@ fn test_trim_end() {
 #[test]
 fn test_split() {
     let s = CheetahString::from("a,b,c");
-    let parts: Vec<&str> = s.split(",").collect();
+    let parts: Vec<&str> = s.split_str(",").collect();
     assert_eq!(parts, vec!["a", "b", "c"]);
 
     let s2 = CheetahString::from("one");
-    let parts2: Vec<&str> = s2.split(",").collect();
+    let parts2: Vec<&str> = s2.split_str(",").collect();
     assert_eq!(parts2, vec!["one"]);
 
     let s3 = CheetahString::from("");
-    let parts3: Vec<&str> = s3.split(",").collect();
+    let parts3: Vec<&str> = s3.split_str(",").collect();
     assert_eq!(parts3, vec![""]);
 }
 
@@ -214,18 +214,18 @@ fn test_add_string() {
 }
 
 #[test]
-fn test_add_assign_str() {
-    let mut s = CheetahString::from("Hello");
-    s += " World";
-    assert_eq!(s, "Hello World");
+fn test_builder_append_str() {
+    let mut builder = CheetahBuilder::from("Hello");
+    builder.push_str(" World");
+    assert_eq!(builder.finish(), "Hello World");
 }
 
 #[test]
-fn test_add_assign_cheetah_string() {
-    let mut s1 = CheetahString::from("Hello");
+fn test_builder_append_cheetah_string() {
+    let mut builder = CheetahBuilder::from("Hello");
     let s2 = CheetahString::from(" World");
-    s1 += &s2;
-    assert_eq!(s1, "Hello World");
+    builder.push_str(s2.as_str());
+    assert_eq!(builder.finish(), "Hello World");
 }
 
 #[test]
@@ -236,11 +236,11 @@ fn test_add_chain() {
 }
 
 #[test]
-fn test_add_assign_chain() {
-    let mut s = CheetahString::from("a");
-    s += "b";
-    s += "c";
-    assert_eq!(s, "abc");
+fn test_builder_append_chain() {
+    let mut builder = CheetahBuilder::from("a");
+    builder.push_str("b");
+    builder.push_str("c");
+    assert_eq!(builder.finish(), "abc");
 }
 
 #[test]
@@ -299,7 +299,7 @@ fn test_unicode_transform() {
 #[test]
 fn test_unicode_split() {
     let s = CheetahString::from("\u{00E9},\u{00E7},\u{00F1},\u{00FC}");
-    let parts: Vec<&str> = s.split(",").collect();
+    let parts: Vec<&str> = s.split_str(",").collect();
     assert_eq!(parts, vec!["\u{00E9}", "\u{00E7}", "\u{00F1}", "\u{00FC}"]);
 }
 

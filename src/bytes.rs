@@ -4,6 +4,59 @@ use core::fmt;
 use core::ops::Deref;
 use core::str::Utf8Error;
 
+/// Error returned when a `bytes::Bytes` buffer is not valid UTF-8.
+///
+/// Unlike `Utf8Error` alone, this error owns the original buffer so callers
+/// can recover, log, or route the exact bytes without copying them again.
+#[derive(Clone, Debug)]
+pub struct FromUtf8BytesError {
+    bytes: ::bytes::Bytes,
+    error: Utf8Error,
+}
+
+impl FromUtf8BytesError {
+    pub(crate) fn new(bytes: ::bytes::Bytes, error: Utf8Error) -> Self {
+        Self { bytes, error }
+    }
+
+    /// Returns the UTF-8 validation error.
+    #[inline]
+    pub fn utf8_error(&self) -> Utf8Error {
+        self.error
+    }
+
+    /// Borrows the original byte buffer.
+    #[inline]
+    pub fn bytes(&self) -> &::bytes::Bytes {
+        &self.bytes
+    }
+
+    /// Recovers the original byte buffer without copying.
+    #[inline]
+    pub fn into_bytes(self) -> ::bytes::Bytes {
+        self.bytes
+    }
+
+    /// Recovers both the original buffer and its validation error.
+    #[inline]
+    pub fn into_parts(self) -> (::bytes::Bytes, Utf8Error) {
+        (self.bytes, self.error)
+    }
+}
+
+impl fmt::Display for FromUtf8BytesError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "invalid UTF-8 byte buffer: {}", self.error)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for FromUtf8BytesError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        Some(&self.error)
+    }
+}
+
 /// Byte-oriented companion type for `CheetahString`.
 ///
 /// `CheetahBytes` does not promise UTF-8 and never dereferences to `str`.
@@ -58,9 +111,21 @@ impl CheetahBytes {
         self.inner
     }
 
+    #[deprecated(
+        since = "2.2.0",
+        note = "use try_copy_to_cheetah_string for a borrowed copy, or CheetahString::try_copy_from_bytes(self.into_bytes()) to recover invalid input"
+    )]
     #[inline]
     pub fn try_into_string(self) -> Result<CheetahString, Utf8Error> {
-        CheetahString::try_from_bytes_buf(self.inner)
+        CheetahString::try_copy_from_bytes(self.inner).map_err(|error| error.into_parts().1)
+    }
+
+    /// Validates UTF-8 and copies this buffer into a `CheetahString`.
+    ///
+    /// The `CheetahBytes` value remains available regardless of success.
+    #[inline]
+    pub fn try_copy_to_cheetah_string(&self) -> Result<CheetahString, Utf8Error> {
+        CheetahString::try_from_bytes(self.as_bytes())
     }
 
     /// Converts bytes into `CheetahString` without validating UTF-8.
@@ -128,11 +193,11 @@ impl From<CheetahBytes> for ::bytes::Bytes {
 }
 
 impl TryFrom<CheetahBytes> for CheetahString {
-    type Error = Utf8Error;
+    type Error = FromUtf8BytesError;
 
     #[inline]
     fn try_from(bytes: CheetahBytes) -> Result<Self, Self::Error> {
-        bytes.try_into_string()
+        CheetahString::try_copy_from_bytes(bytes.into_bytes())
     }
 }
 
@@ -141,7 +206,7 @@ impl TryFrom<&CheetahBytes> for CheetahString {
 
     #[inline]
     fn try_from(bytes: &CheetahBytes) -> Result<Self, Self::Error> {
-        CheetahString::try_from_bytes(bytes.as_bytes())
+        bytes.try_copy_to_cheetah_string()
     }
 }
 

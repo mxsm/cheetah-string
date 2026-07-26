@@ -1,7 +1,7 @@
 #![cfg(feature = "experimental-packed")]
 
 use cheetah_string::packed::PackedCheetahString;
-use cheetah_string::CheetahString;
+use cheetah_string::{CheetahBuilder, CheetahString};
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 use std::collections::HashMap;
 
@@ -42,11 +42,11 @@ fn bench_packed_construction(c: &mut Criterion) {
 fn bench_packed_push_str(c: &mut Criterion) {
     let mut group = c.benchmark_group("packed_push_str");
 
-    group.bench_function("CheetahString inline append", |b| {
+    group.bench_function("CheetahBuilder inline append", |b| {
         b.iter(|| {
-            let mut value = CheetahString::from("topic");
+            let mut value = CheetahBuilder::from("topic");
             value.push_str(black_box("-a"));
-            black_box(value)
+            black_box(value.finish())
         })
     });
     group.bench_function("PackedCheetahString inline append", |b| {
@@ -56,11 +56,11 @@ fn bench_packed_push_str(c: &mut Criterion) {
             black_box(value)
         })
     });
-    group.bench_function("CheetahString promote to heap", |b| {
+    group.bench_function("CheetahBuilder promote to heap", |b| {
         b.iter(|| {
-            let mut value = CheetahString::from("12345678901234567890123");
+            let mut value = CheetahBuilder::from("12345678901234567890123");
             value.push_str(black_box("-overflow"));
-            black_box(value)
+            black_box(value.finish())
         })
     });
     group.bench_function("PackedCheetahString promote to heap", |b| {
