@@ -18,13 +18,13 @@ fn main() {
 
     println!("\n=== Testing split with char ===");
     let csv = CheetahString::from("a_b_c");
-    let parts: Vec<&str> = csv.split('_').collect();
-    println!("csv.split('_'): {:?}", parts);
+    let parts: Vec<&str> = csv.split_char('_').collect();
+    println!("csv.split_char('_'): {:?}", parts);
 
     println!("\n=== Testing split with str ===");
     let data = CheetahString::from("item1::item2::item3");
-    let items: Vec<&str> = data.split("::").collect();
-    println!("data.split(\"::\"): {:?}", items);
+    let items: Vec<&str> = data.split_str("::").collect();
+    println!("data.split_str(\"::\"): {:?}", items);
 
     println!("\n=== Testing chars with reverse ===");
     let crc = CheetahString::from("12345");
@@ -33,8 +33,8 @@ fn main() {
 
     println!("\n=== Combined example (similar to error case) ===");
     let content = CheetahString::from("file_name_123");
-    let vec: Vec<&str> = content.split('_').collect();
-    println!("content.split('_'): {:?}", vec);
+    let vec: Vec<&str> = content.split_char('_').collect();
+    println!("content.split_char('_'): {:?}", vec);
 
     let key = CheetahString::from("+property");
     if key.starts_with('+') {

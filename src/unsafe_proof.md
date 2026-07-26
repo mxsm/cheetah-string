@@ -1,4 +1,4 @@
-# Experimental Packed Representation Safety Proof
+# Experimental Packed Representation Safety Analysis
 
 This document applies only to `feature = "experimental-packed"` and the
 `packed::PackedCheetahString` prototype. It is not part of the stable
@@ -43,6 +43,9 @@ scripts/verify-packed.ps1 -RunMiri -RunSanitizer -RunFuzz -RunBench
 
 ## Current Status
 
-The prototype is intentionally not wired into stable `CheetahString`. It is a
-contained experiment used to validate layout, drop/clone behavior, and benchmark
-potential before any stable representation change is considered.
+This is not a completed safety proof. Strict-provenance Miri rejects the
+integer-to-pointer reconstruction used by the heap representation. The
+prototype is intentionally not wired into stable `CheetahString`; it remains a
+contained negative experiment until a preserving-provenance redesign satisfies
+every gate above. See ADR 006 and the local safety summary for the recorded
+decision and diagnostic evidence.

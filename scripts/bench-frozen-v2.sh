@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# This capture harness is intentionally separate from bench-all.sh. It runs only
+# against the normalized v2 baseline whose runtime source is identical to
+# 29315cae, but whose benchmark workloads and allocation/layout contracts were
+# repaired before the v3 implementation work started.
+EXPECTED_FROZEN_SHA=4a66e95d9ee429a24a55f9a15facad91ac0dec20
+CAPTURE_SCHEMA=cheetah-string-capture-v2
+
 VERSION=${1:-current}
 SAMPLE_COUNT=${2:-100}
 FEATURES=${3:-default}
@@ -8,7 +15,6 @@ MODE=${4:-full}
 TOOLCHAIN=${CARGO_TOOLCHAIN:-}
 RESULT_DIR="bench-results/${VERSION}"
 CRITERION_DESTINATION="$RESULT_DIR/criterion"
-CAPTURE_SCHEMA=cheetah-string-capture-v2
 TARGET_ROOT=${CARGO_TARGET_DIR:-target}
 CRITERION_SOURCE="$TARGET_ROOT/criterion"
 
@@ -46,6 +52,10 @@ esac
   exit 1
 }
 GIT_SHA=$(git rev-parse HEAD)
+[ "$GIT_SHA" = "$EXPECTED_FROZEN_SHA" ] || {
+  echo "frozen v2 harness requires $EXPECTED_FROZEN_SHA, found $GIT_SHA" >&2
+  exit 1
+}
 if [ -n "$(git status --porcelain)" ]; then
   GIT_DIRTY=true
 else
@@ -107,7 +117,7 @@ json_escape() {
   printf '  "cpu": "%s",\n' "$(json_escape "$CPU")"
   printf '  "os": "%s",\n' "$(json_escape "$OS")"
   printf '  "features": "%s",\n' "$(json_escape "$FEATURES;simd-bench=isolated")"
-  printf '  "simd_feature_alias": "experimental-simd",\n'
+  printf '  "simd_feature_alias": "simd",\n'
   printf '  "harness_identity": {\n'
   printf '    "benchmark_tree": "%s",\n' "$BENCHMARK_TREE"
   printf '    "allocation_contract_blob": "%s",\n' "$ALLOCATION_CONTRACT_BLOB"
@@ -156,8 +166,9 @@ cat > "$RESULT_DIR/contracts.json" <<'JSON'
   "schema_version": 1,
   "layout_contract": "passed",
   "allocation_contract": "passed",
-  "clone_allocations_max": 0,
-  "source": "tests/allocation_contract.rs"
+  "clone_allocations_max": 1,
+  "source": "tests/allocation_contract.rs",
+  "note": "The normalized v2 baseline preserves the construction-dependent Owned clone."
 }
 JSON
 # CRITERION_ARGS is intentionally word-split into Criterion's individual options.
@@ -176,7 +187,7 @@ run_cargo mq-remoting-header.txt bench --bench mq_remoting_header -- $CRITERION_
 # shellcheck disable=SC2086
 run_cargo pattern.txt bench --bench pattern -- $CRITERION_ARGS
 # shellcheck disable=SC2086
-run_cargo simd.txt bench --bench simd --features experimental-simd -- $CRITERION_ARGS
+run_cargo simd.txt bench --bench simd --features simd -- $CRITERION_ARGS
 # shellcheck disable=SC2086
 run_cargo shared-backing.txt bench --bench shared_backing -- $CRITERION_ARGS
 

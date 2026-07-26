@@ -1,22 +1,26 @@
 //! SIMD-accelerated string operations
 //!
 //! This module provides SIMD implementations for common string operations
-//! when the `simd` feature is enabled. It automatically falls back to
+//! when the `experimental-simd` feature is enabled. It automatically falls back to
 //! scalar implementations when SIMD is not available or for small inputs.
 
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
+#[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
 use core::arch::x86_64::*;
 
 /// Minimum length threshold for using SIMD operations
 pub(crate) const SIMD_THRESHOLD: usize = 16;
 
-#[cfg(all(feature = "simd", target_arch = "x86_64", feature = "std"))]
+#[cfg(all(feature = "experimental-simd", target_arch = "x86_64", feature = "std"))]
 #[inline]
 fn has_sse2() -> bool {
     std::arch::is_x86_feature_detected!("sse2")
 }
 
-#[cfg(all(feature = "simd", target_arch = "x86_64", not(feature = "std")))]
+#[cfg(all(
+    feature = "experimental-simd",
+    target_arch = "x86_64",
+    not(feature = "std")
+))]
 #[inline]
 fn has_sse2() -> bool {
     // SSE2 is part of the x86_64 baseline, so no runtime detection is needed
@@ -31,7 +35,7 @@ pub(crate) fn eq_bytes(a: &[u8], b: &[u8]) -> bool {
         return false;
     }
 
-    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+    #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
     {
         if has_sse2() && a.len() >= SIMD_THRESHOLD {
             return unsafe { eq_bytes_sse2(a, b) };
@@ -53,7 +57,7 @@ pub(crate) fn starts_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         return true;
     }
 
-    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+    #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
     {
         if has_sse2() && needle.len() >= SIMD_THRESHOLD {
             return unsafe { eq_bytes_sse2(&haystack[..needle.len()], needle) };
@@ -75,7 +79,7 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
         return true;
     }
 
-    #[cfg(all(feature = "simd", target_arch = "x86_64"))]
+    #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
     {
         if has_sse2() && needle.len() >= SIMD_THRESHOLD {
             let start = haystack.len() - needle.len();
@@ -89,7 +93,7 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
 
 // SIMD implementations for x86_64 with SSE2
 
-#[cfg(all(feature = "simd", target_arch = "x86_64"))]
+#[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 #[inline]
 unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
@@ -100,8 +104,16 @@ unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
 
     // Process 16 bytes at a time
     while offset + 16 <= len {
-        let a_vec = _mm_loadu_si128(a.as_ptr().add(offset) as *const __m128i);
-        let b_vec = _mm_loadu_si128(b.as_ptr().add(offset) as *const __m128i);
+        // SAFETY: The loop condition guarantees that both slices contain at
+        // least 16 bytes starting at `offset`. `_mm_loadu_si128` permits
+        // unaligned addresses, and this function is entered only when SSE2 is
+        // available.
+        let (a_vec, b_vec) = unsafe {
+            (
+                _mm_loadu_si128(a.as_ptr().add(offset) as *const __m128i),
+                _mm_loadu_si128(b.as_ptr().add(offset) as *const __m128i),
+            )
+        };
         let cmp = _mm_cmpeq_epi8(a_vec, b_vec);
         let mask = _mm_movemask_epi8(cmp);
 
@@ -122,7 +134,7 @@ unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
     true
 }
 
-#[cfg(all(test, feature = "simd"))]
+#[cfg(all(test, feature = "experimental-simd"))]
 mod tests {
     use super::*;
 

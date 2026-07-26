@@ -1,5 +1,5 @@
-use cheetah_string::CheetahString;
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use cheetah_string::{CheetahBuilder, CheetahString};
+use criterion::{black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion};
 use std::sync::Arc;
 
 // Benchmark: String creation from various sources
@@ -8,47 +8,85 @@ fn bench_creation(c: &mut Criterion) {
 
     // Empty string
     group.bench_function("CheetahString::new", |b| {
-        b.iter(|| black_box(CheetahString::new()))
+        b.iter_batched(
+            || (),
+            |()| black_box(CheetahString::new()),
+            BatchSize::SmallInput,
+        )
     });
 
-    group.bench_function("String::new", |b| b.iter(|| black_box(String::new())));
+    group.bench_function("String::new", |b| {
+        b.iter_batched(|| (), |()| black_box(String::new()), BatchSize::SmallInput)
+    });
 
     group.bench_function("Arc<String>::new", |b| {
-        b.iter(|| black_box(Arc::new(String::new())))
+        b.iter_batched(
+            || (),
+            |()| black_box(Arc::new(String::new())),
+            BatchSize::SmallInput,
+        )
     });
 
     // Short string (SSO optimized)
     let short = "hello";
     group.bench_function("CheetahString::from(short)", |b| {
-        b.iter(|| black_box(CheetahString::from(short)))
+        b.iter_batched(
+            || short,
+            |value| black_box(CheetahString::from(black_box(value))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("String::from(short)", |b| {
-        b.iter(|| black_box(String::from(short)))
+        b.iter_batched(
+            || short,
+            |value| black_box(String::from(black_box(value))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("Arc<String>::from(short)", |b| {
-        b.iter(|| black_box(Arc::new(String::from(short))))
+        b.iter_batched(
+            || short,
+            |value| black_box(Arc::new(String::from(black_box(value)))),
+            BatchSize::SmallInput,
+        )
     });
 
     // Medium string (23 bytes - SSO boundary)
     let medium = "12345678901234567890123"; // exactly 23 bytes
     group.bench_function("CheetahString::from(23B)", |b| {
-        b.iter(|| black_box(CheetahString::from(medium)))
+        b.iter_batched(
+            || medium,
+            |value| black_box(CheetahString::from(black_box(value))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("String::from(23B)", |b| {
-        b.iter(|| black_box(String::from(medium)))
+        b.iter_batched(
+            || medium,
+            |value| black_box(String::from(black_box(value))),
+            BatchSize::SmallInput,
+        )
     });
 
     // Long string (>SSO capacity)
     let long = "This is a longer string that exceeds SSO capacity";
     group.bench_function("CheetahString::from(long)", |b| {
-        b.iter(|| black_box(CheetahString::from(long)))
+        b.iter_batched(
+            || long,
+            |value| black_box(CheetahString::from(black_box(value))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("String::from(long)", |b| {
-        b.iter(|| black_box(String::from(long)))
+        b.iter_batched(
+            || long,
+            |value| black_box(String::from(black_box(value))),
+            BatchSize::SmallInput,
+        )
     });
 
     group.finish();
@@ -64,15 +102,27 @@ fn bench_clone(c: &mut Criterion) {
     let arc_empty = Arc::new(String::new());
 
     group.bench_function("CheetahString::clone(empty)", |b| {
-        b.iter(|| black_box(cs_empty.clone()))
+        b.iter_batched(
+            || &cs_empty,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("String::clone(empty)", |b| {
-        b.iter(|| black_box(s_empty.clone()))
+        b.iter_batched(
+            || &s_empty,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("Arc<String>::clone(empty)", |b| {
-        b.iter(|| black_box(arc_empty.clone()))
+        b.iter_batched(
+            || &arc_empty,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     // Short (SSO)
@@ -81,15 +131,27 @@ fn bench_clone(c: &mut Criterion) {
     let arc_short = Arc::new(String::from("hello"));
 
     group.bench_function("CheetahString::clone(short)", |b| {
-        b.iter(|| black_box(cs_short.clone()))
+        b.iter_batched(
+            || &cs_short,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("String::clone(short)", |b| {
-        b.iter(|| black_box(s_short.clone()))
+        b.iter_batched(
+            || &s_short,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("Arc<String>::clone(short)", |b| {
-        b.iter(|| black_box(arc_short.clone()))
+        b.iter_batched(
+            || &arc_short,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     // Long
@@ -99,15 +161,27 @@ fn bench_clone(c: &mut Criterion) {
     let arc_long = Arc::new(String::from(long_text.as_str()));
 
     group.bench_function("CheetahString::clone(1KB)", |b| {
-        b.iter(|| black_box(cs_long.clone()))
+        b.iter_batched(
+            || &cs_long,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("String::clone(1KB)", |b| {
-        b.iter(|| black_box(s_long.clone()))
+        b.iter_batched(
+            || &s_long,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.bench_function("Arc<String>::clone(1KB)", |b| {
-        b.iter(|| black_box(arc_long.clone()))
+        b.iter_batched(
+            || &arc_long,
+            |value| black_box(value.clone()),
+            BatchSize::SmallInput,
+        )
     });
 
     group.finish();
@@ -121,34 +195,36 @@ fn bench_query(c: &mut Criterion) {
     let s = String::from("hello world, this is a test string");
 
     group.bench_function("CheetahString::starts_with", |b| {
-        b.iter(|| black_box(cs.starts_with("hello")))
+        b.iter(|| black_box(black_box(&cs).starts_with(black_box("hello"))))
     });
 
     group.bench_function("String::starts_with", |b| {
-        b.iter(|| black_box(s.starts_with("hello")))
+        b.iter(|| black_box(black_box(&s).starts_with(black_box("hello"))))
     });
 
     group.bench_function("CheetahString::ends_with", |b| {
-        b.iter(|| black_box(cs.ends_with("string")))
+        b.iter(|| black_box(black_box(&cs).ends_with(black_box("string"))))
     });
 
     group.bench_function("String::ends_with", |b| {
-        b.iter(|| black_box(s.ends_with("string")))
+        b.iter(|| black_box(black_box(&s).ends_with(black_box("string"))))
     });
 
     group.bench_function("CheetahString::contains", |b| {
-        b.iter(|| black_box(cs.contains("test")))
+        b.iter(|| black_box(black_box(&cs).contains(black_box("test"))))
     });
 
     group.bench_function("String::contains", |b| {
-        b.iter(|| black_box(s.contains("test")))
+        b.iter(|| black_box(black_box(&s).contains(black_box("test"))))
     });
 
     group.bench_function("CheetahString::find", |b| {
-        b.iter(|| black_box(cs.find("test")))
+        b.iter(|| black_box(black_box(&cs).find(black_box("test"))))
     });
 
-    group.bench_function("String::find", |b| b.iter(|| black_box(s.find("test"))));
+    group.bench_function("String::find", |b| {
+        b.iter(|| black_box(black_box(&s).find(black_box("test"))))
+    });
 
     group.finish();
 }
@@ -254,7 +330,7 @@ fn bench_iteration(c: &mut Criterion) {
 
     group.bench_function("CheetahString::split", |b| {
         b.iter(|| {
-            for part in cs.split(" ") {
+            for part in cs.split_str(" ") {
                 black_box(part);
             }
         })
@@ -275,17 +351,27 @@ fn bench_iteration(c: &mut Criterion) {
 fn bench_size_scaling(c: &mut Criterion) {
     let mut group = c.benchmark_group("size_scaling");
 
-    for size in [10, 23, 50, 100, 500, 1000].iter() {
+    for size in [10, 22, 23, 24, 25, 50, 100, 500, 1000].iter() {
         let text = "a".repeat(*size);
 
         group.bench_with_input(
             BenchmarkId::new("CheetahString::from", size),
             &text,
-            |b, text| b.iter(|| black_box(CheetahString::from(text.as_str()))),
+            |b, text| {
+                b.iter_batched(
+                    || text.as_str(),
+                    |value| black_box(CheetahString::from(black_box(value))),
+                    BatchSize::SmallInput,
+                )
+            },
         );
 
         group.bench_with_input(BenchmarkId::new("String::from", size), &text, |b, text| {
-            b.iter(|| black_box(String::from(text.as_str())))
+            b.iter_batched(
+                || text.as_str(),
+                |value| black_box(String::from(black_box(value))),
+                BatchSize::SmallInput,
+            )
         });
 
         let cs = CheetahString::from(text.as_str());
@@ -294,11 +380,21 @@ fn bench_size_scaling(c: &mut Criterion) {
         group.bench_with_input(
             BenchmarkId::new("CheetahString::clone", size),
             &cs,
-            |b, cs| b.iter(|| black_box(cs.clone())),
+            |b, cs| {
+                b.iter_batched(
+                    || cs,
+                    |value| black_box(value.clone()),
+                    BatchSize::SmallInput,
+                )
+            },
         );
 
         group.bench_with_input(BenchmarkId::new("String::clone", size), &s, |b, s| {
-            b.iter(|| black_box(s.clone()))
+            b.iter_batched(
+                || s,
+                |value| black_box(value.clone()),
+                BatchSize::SmallInput,
+            )
         });
     }
 
@@ -310,23 +406,23 @@ fn bench_internal_hot_paths(c: &mut Criterion) {
     let mut group = c.benchmark_group("internal_hot_paths");
 
     let segments = ["alpha", "-", "beta", "-", "gamma", "-", "delta"];
-    group.bench_function("CheetahString::with_capacity+push_str", |b| {
+    group.bench_function("CheetahBuilder::with_capacity+finish", |b| {
         b.iter(|| {
-            let mut value = CheetahString::with_capacity(64);
+            let mut value = CheetahBuilder::with_capacity(64);
             for segment in segments {
                 value.push_str(segment);
             }
-            black_box(value)
+            black_box(value.finish())
         })
     });
 
-    group.bench_function("CheetahString::new+push_str", |b| {
+    group.bench_function("CheetahBuilder::new+finish", |b| {
         b.iter(|| {
-            let mut value = CheetahString::new();
+            let mut value = CheetahBuilder::new();
             for segment in segments {
                 value.push_str(segment);
             }
-            black_box(value)
+            black_box(value.finish())
         })
     });
 

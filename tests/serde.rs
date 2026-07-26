@@ -1,24 +1,24 @@
 #![cfg(feature = "serde")]
 
-use cheetah_string::{CheetahStr, CheetahString, Error};
+use cheetah_string::{CheetahString, Error};
 
 #[test]
-fn cheetah_str_serializes_and_deserializes_inline_values() {
-    let value = CheetahStr::from("topic-a");
+fn cheetah_string_serializes_and_deserializes_inline_values() {
+    let value = CheetahString::from("topic-a");
 
     let json = serde_json::to_string(&value).unwrap();
-    let decoded: CheetahStr = serde_json::from_str(&json).unwrap();
+    let decoded: CheetahString = serde_json::from_str(&json).unwrap();
 
     assert_eq!(json, "\"topic-a\"");
     assert_eq!(decoded, "topic-a");
 }
 
 #[test]
-fn cheetah_str_serializes_and_deserializes_shared_values() {
-    let value = CheetahStr::from("topic.".repeat(16));
+fn cheetah_string_serializes_and_deserializes_shared_values() {
+    let value = CheetahString::from("topic.".repeat(16));
 
     let json = serde_json::to_string(&value).unwrap();
-    let decoded: CheetahStr = serde_json::from_str(&json).unwrap();
+    let decoded: CheetahString = serde_json::from_str(&json).unwrap();
 
     assert_eq!(decoded, value);
 }

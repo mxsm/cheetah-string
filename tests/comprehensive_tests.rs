@@ -4,18 +4,18 @@ use cheetah_string::CheetahString;
 fn test_unicode_split() {
     // Test Unicode characters
     let s = CheetahString::from("hello,world,Rust");
-    let parts: Vec<&str> = s.split(',').collect();
+    let parts: Vec<&str> = s.split_char(',').collect();
     assert_eq!(parts, vec!["hello", "world", "Rust"]);
 
     let s = CheetahString::from("Crab::Rust::Rocket");
-    let parts: Vec<&str> = s.split("::").collect();
+    let parts: Vec<&str> = s.split_str("::").collect();
     assert_eq!(parts, vec!["Crab", "Rust", "Rocket"]);
 }
 
 #[test]
 fn test_split_iterator_behavior() {
     let s = CheetahString::from("a,b,c,d");
-    let mut iter = s.split(',');
+    let mut iter = s.split_char(',');
 
     assert_eq!(iter.next(), Some("a"));
     assert_eq!(iter.next(), Some("b"));
@@ -28,23 +28,16 @@ fn test_split_iterator_behavior() {
 #[test]
 fn test_split_char_reverse() {
     let s = CheetahString::from("a,b,c,d");
-    let parts: Vec<&str> = s.split(',').rev().collect();
+    let parts: Vec<&str> = s.split_char(',').rev().collect();
     assert_eq!(parts, vec!["d", "c", "b", "a"]);
 
     // Test DoubleEndedIterator
-    let mut iter = s.split(',');
+    let mut iter = s.split_char(',');
     assert_eq!(iter.next(), Some("a"));
     assert_eq!(iter.next_back(), Some("d"));
     assert_eq!(iter.next(), Some("b"));
     assert_eq!(iter.next_back(), Some("c"));
     assert_eq!(iter.next(), None);
-}
-
-#[test]
-#[should_panic(expected = "split with string pattern does not support reverse iteration")]
-fn test_split_str_reverse_panics() {
-    let s = CheetahString::from("a::b::c");
-    let _: Vec<&str> = s.split("::").rev().collect();
 }
 
 #[test]
@@ -60,7 +53,7 @@ fn test_pattern_traits() {
     assert!(s.contains("attr"));
 
     // SplitPattern trait
-    let parts: Vec<&str> = s.split('-').collect();
+    let parts: Vec<&str> = s.split_char('-').collect();
     assert_eq!(parts, vec!["+attribute", "test"]);
 }
 
@@ -83,7 +76,7 @@ fn test_long_strings() {
     // Test strings exceeding inline capacity
     let long_str = "a".repeat(100) + "," + &"b".repeat(100);
     let s = CheetahString::from(long_str.as_str());
-    let parts: Vec<&str> = s.split(',').collect();
+    let parts: Vec<&str> = s.split_char(',').collect();
     assert_eq!(parts.len(), 2);
     assert_eq!(parts[0].len(), 100);
     assert_eq!(parts[1].len(), 100);
@@ -93,14 +86,14 @@ fn test_long_strings() {
 fn test_special_patterns() {
     // Test special characters
     let s = CheetahString::from("a\tb\tc");
-    let parts: Vec<&str> = s.split('\t').collect();
+    let parts: Vec<&str> = s.split_char('\t').collect();
     assert_eq!(parts, vec!["a", "b", "c"]);
 
     let s = CheetahString::from("a\nb\nc");
-    let parts: Vec<&str> = s.split('\n').collect();
+    let parts: Vec<&str> = s.split_char('\n').collect();
     assert_eq!(parts, vec!["a", "b", "c"]);
 
     let s = CheetahString::from("a\\b\\c");
-    let parts: Vec<&str> = s.split('\\').collect();
+    let parts: Vec<&str> = s.split_char('\\').collect();
     assert_eq!(parts, vec!["a", "b", "c"]);
 }

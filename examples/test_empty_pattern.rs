@@ -11,7 +11,7 @@ fn main() {
 
     // CheetahString empty pattern behavior
     let cheetah = CheetahString::from("hello");
-    let cheetah_result: Vec<&str> = cheetah.split("").collect();
+    let cheetah_result: Vec<&str> = cheetah.split_str("").collect();
     println!("\nCheetahString \"hello\".split(\"\"):");
     println!("  Result: {:?}", cheetah_result);
     println!("  Length: {}", cheetah_result.len());
@@ -31,7 +31,7 @@ fn main() {
     println!("  Result: {:?}", std_empty);
 
     let cheetah_empty = CheetahString::from("");
-    let cheetah_empty_result: Vec<&str> = cheetah_empty.split("").collect();
+    let cheetah_empty_result: Vec<&str> = cheetah_empty.split_str("").collect();
     println!("\nCheetahString \"\".split(\"\"):");
     println!("  Result: {:?}", cheetah_empty_result);
 }

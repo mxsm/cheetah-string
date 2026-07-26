@@ -27,14 +27,14 @@ mod pattern_tests {
     #[test]
     fn test_split_char() {
         let s = CheetahString::from("a_b_c");
-        let parts: Vec<&str> = s.split('_').collect();
+        let parts: Vec<&str> = s.split_char('_').collect();
         assert_eq!(parts, vec!["a", "b", "c"]);
     }
 
     #[test]
     fn test_split_str() {
         let s = CheetahString::from("a::b::c");
-        let parts: Vec<&str> = s.split("::").collect();
+        let parts: Vec<&str> = s.split_str("::").collect();
         assert_eq!(parts, vec!["a", "b", "c"]);
     }
 
@@ -61,7 +61,7 @@ mod pattern_tests {
     #[test]
     fn test_split_char_reverse() {
         let s = CheetahString::from("a_b_c");
-        let parts: Vec<&str> = s.split('_').rev().collect();
+        let parts: Vec<&str> = s.split_char('_').rev().collect();
         assert_eq!(parts, vec!["c", "b", "a"]);
     }
 
@@ -69,7 +69,7 @@ mod pattern_tests {
     fn test_combined_patterns() {
         // Test case similar to the original error
         let content = CheetahString::from("file_name_123");
-        let vec: Vec<&str> = content.split('_').collect();
+        let vec: Vec<&str> = content.split_char('_').collect();
         assert_eq!(vec, vec!["file", "name", "123"]);
 
         let key = CheetahString::from("+attribute");

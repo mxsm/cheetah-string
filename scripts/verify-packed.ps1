@@ -135,9 +135,21 @@ if ($RunMiri) {
     if ($LASTEXITCODE -eq 0) {
         Add-SummaryLine "- ``cargo +nightly miri --version``: $MiriVersion"
         $Failed += Invoke-Gate `
-            -Name "cargo +nightly miri test --features experimental-packed packed" `
+            -Name "strict-provenance Miri packed integration target" `
             -LogName "packed-miri.txt" `
-            -CommandLine "cargo +nightly miri test --features experimental-packed packed"
+            -Before {
+                $script:PreviousMiriFlags = $env:MIRIFLAGS
+                $script:HadMiriFlags = Test-Path Env:MIRIFLAGS
+                $env:MIRIFLAGS = "-Zmiri-strict-provenance"
+            } `
+            -After {
+                if ($script:HadMiriFlags) {
+                    $env:MIRIFLAGS = $script:PreviousMiriFlags
+                } else {
+                    Remove-Item Env:MIRIFLAGS -ErrorAction SilentlyContinue
+                }
+            } `
+            -CommandLine "cargo +nightly miri test --test packed --features experimental-packed"
     } else {
         Add-SummaryLine "- ``miri``: SKIP, install with ``rustup component add --toolchain nightly-x86_64-pc-windows-msvc miri``"
     }
@@ -162,7 +174,7 @@ if ($RunSanitizer) {
                 Remove-Item Env:RUSTFLAGS -ErrorAction SilentlyContinue
             }
         } `
-        -CommandLine "cargo +nightly test --features experimental-packed packed"
+        -CommandLine "cargo +nightly test --test packed --features experimental-packed"
 } else {
     Add-SummaryLine "- ``address sanitizer``: SKIP, pass ``-RunSanitizer`` on a supported nightly target"
 }
@@ -173,11 +185,11 @@ if ($RunFuzz) {
         $Failed += Invoke-Gate `
             -Name "cargo +nightly fuzz run fuzz_packed_from_bytes" `
             -LogName "fuzz-packed-from-bytes.txt" `
-            -CommandLine "cargo +nightly fuzz run fuzz_packed_from_bytes -- $FuzzRunArg"
+            -CommandLine "cargo +nightly fuzz run fuzz_packed_from_bytes --features packed -- $FuzzRunArg"
         $Failed += Invoke-Gate `
             -Name "cargo +nightly fuzz run fuzz_packed_push_str" `
             -LogName "fuzz-packed-push-str.txt" `
-            -CommandLine "cargo +nightly fuzz run fuzz_packed_push_str -- $FuzzRunArg"
+            -CommandLine "cargo +nightly fuzz run fuzz_packed_push_str --features packed -- $FuzzRunArg"
     } else {
         Add-SummaryLine "- ``cargo-fuzz``: SKIP, install with ``cargo install cargo-fuzz``"
     }

@@ -159,29 +159,28 @@ fn test_from_arc_string() {
 }
 
 #[test]
-fn test_into_string_reuses_unique_arc_string_buffer() {
+fn test_into_string_copies_frozen_arc_string_value() {
     let value = "a".repeat(64);
     let arc = Arc::new(value);
-    let original_ptr = arc.as_bytes().as_ptr();
 
     let s = CheetahString::from(arc);
     let owned: String = s.into();
 
-    assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
+    assert_eq!(owned, "a".repeat(64));
 }
 
 #[test]
-fn test_into_string_reuses_owned_arc_string_buffer_after_clone() {
+fn test_into_string_preserves_shared_arc_payload_after_clone() {
     let value = "a".repeat(64);
     let arc = Arc::new(value);
-    let original_ptr = arc.as_bytes().as_ptr();
 
     let s = CheetahString::from(arc);
     let shared = s.clone();
+    let shared_ptr = shared.as_bytes().as_ptr();
     let owned: String = s.into();
 
-    assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
-    assert_ne!(shared.as_bytes().as_ptr(), original_ptr);
+    assert_ne!(owned.as_bytes().as_ptr(), shared_ptr);
+    assert_eq!(shared.as_bytes().as_ptr(), shared_ptr);
     assert_eq!(shared.as_str(), "a".repeat(64));
 }
 
@@ -199,27 +198,26 @@ fn test_into_string_copies_shared_arc_string_input() {
 }
 
 #[test]
-fn test_into_string_reuses_unique_vec_buffer() {
+fn test_into_string_roundtrips_frozen_vec_value() {
     let bytes = vec![b'a'; 64];
-    let original_ptr = bytes.as_ptr();
 
     let s = CheetahString::try_from_vec(bytes).unwrap();
     let owned: String = s.into();
 
-    assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
+    assert_eq!(owned, "a".repeat(64));
 }
 
 #[test]
-fn test_into_string_reuses_owned_vec_buffer_after_clone() {
+fn test_into_string_preserves_shared_vec_payload_after_clone() {
     let bytes = vec![b'a'; 64];
-    let original_ptr = bytes.as_ptr();
 
     let s = CheetahString::try_from_vec(bytes).unwrap();
     let shared = s.clone();
+    let shared_ptr = shared.as_bytes().as_ptr();
     let owned: String = s.into();
 
-    assert_eq!(owned.as_bytes().as_ptr(), original_ptr);
-    assert_ne!(shared.as_bytes().as_ptr(), original_ptr);
+    assert_ne!(owned.as_bytes().as_ptr(), shared_ptr);
+    assert_eq!(shared.as_bytes().as_ptr(), shared_ptr);
     assert_eq!(shared.as_str(), "a".repeat(64));
 }
 

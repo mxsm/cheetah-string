@@ -1,6 +1,10 @@
 use cheetah_string::CheetahString;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
-use std::time::Duration;
+
+#[cfg(feature = "experimental-simd")]
+const ACTIVE_BACKEND: &str = "experimental-simd";
+#[cfg(not(feature = "experimental-simd"))]
+const ACTIVE_BACKEND: &str = "portable-default";
 
 const SHORT_NEEDLE_CASES: [(&str, &str, &str); 3] = [
     ("two_bytes", "xy", "zz"),
@@ -9,45 +13,74 @@ const SHORT_NEEDLE_CASES: [(&str, &str, &str); 3] = [
 ];
 const SHORT_NEEDLE_SIZES: [usize; 4] = [16, 64, 256, 1024];
 const SHORT_NEEDLE_COMPARE_SIZES: [usize; 2] = [64, 1024];
+const FIXED_DATA_SEED: u64 = 0xC4EE_7A51_95AA_0001;
+const FULL_SIZE_MATRIX: [usize; 12] = [16, 22, 23, 24, 25, 32, 64, 128, 256, 512, 1024, 4096];
+
+fn deterministic_ascii(len: usize, seed: u64) -> String {
+    let mut state = seed;
+    let bytes = (0..len)
+        .map(|_| {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            b'a' + (state % 26) as u8
+        })
+        .collect::<Vec<_>>();
+    String::from_utf8(bytes).expect("fixed generator emits ASCII")
+}
 
 fn bench_equality(c: &mut Criterion) {
-    let mut group = c.benchmark_group("equality");
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/equality"));
 
-    for size in [16, 32, 64, 128, 256, 512, 1024, 4096] {
-        let s1 = CheetahString::from("a".repeat(size));
-        let s2 = CheetahString::from("a".repeat(size));
-        let s3 = CheetahString::from(format!("{}b", "a".repeat(size - 1)));
+    for size in FULL_SIZE_MATRIX {
+        let source = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
+        let s1 = CheetahString::from(source.as_str());
+        let s2 = CheetahString::from(source.as_str());
 
         group.throughput(Throughput::Bytes(size as u64));
 
         group.bench_with_input(BenchmarkId::new("equal", size), &size, |b, _| {
-            b.iter(|| black_box(&s1) == black_box(&s2))
+            b.iter(|| black_box(black_box(&s1) == black_box(&s2)))
         });
 
-        group.bench_with_input(BenchmarkId::new("not_equal", size), &size, |b, _| {
-            b.iter(|| black_box(&s1) == black_box(&s3))
-        });
+        for (position, index) in [
+            ("mismatch_start", 0),
+            ("mismatch_middle", size / 2),
+            ("mismatch_end", size - 1),
+        ] {
+            let mut mismatch = source.clone().into_bytes();
+            mismatch[index] = if mismatch[index] == b'~' { b'!' } else { b'~' };
+            let mismatch = CheetahString::from(
+                String::from_utf8(mismatch).expect("replacement remains ASCII"),
+            );
+            group.bench_with_input(BenchmarkId::new(position, size), &size, |b, _| {
+                b.iter(|| black_box(black_box(&s1) == black_box(&mismatch)))
+            });
+        }
     }
 
     group.finish();
 }
 
 fn bench_starts_with(c: &mut Criterion) {
-    let mut group = c.benchmark_group("starts_with");
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/starts_with"));
 
-    for size in [16, 32, 64, 128, 256, 512, 1024, 4096] {
-        let haystack = CheetahString::from("a".repeat(size));
-        let needle_match = "a".repeat(size / 2);
-        let needle_no_match = "b".repeat(size / 2);
+    for size in FULL_SIZE_MATRIX {
+        let source = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
+        let haystack = CheetahString::from(source.as_str());
+        let needle_match = source[..size / 2].to_owned();
+        let needle_no_match = "~".repeat(size / 2);
 
         group.throughput(Throughput::Bytes(size as u64));
 
         group.bench_with_input(BenchmarkId::new("match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).starts_with(black_box(&needle_match)))
+            b.iter(|| black_box(black_box(&haystack).starts_with(black_box(needle_match.as_str()))))
         });
 
         group.bench_with_input(BenchmarkId::new("no_match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).starts_with(black_box(&needle_no_match)))
+            b.iter(|| {
+                black_box(black_box(&haystack).starts_with(black_box(needle_no_match.as_str())))
+            })
         });
     }
 
@@ -55,21 +88,24 @@ fn bench_starts_with(c: &mut Criterion) {
 }
 
 fn bench_ends_with(c: &mut Criterion) {
-    let mut group = c.benchmark_group("ends_with");
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/ends_with"));
 
-    for size in [16, 32, 64, 128, 256, 512, 1024, 4096] {
-        let haystack = CheetahString::from("a".repeat(size));
-        let needle_match = "a".repeat(size / 2);
-        let needle_no_match = "b".repeat(size / 2);
+    for size in FULL_SIZE_MATRIX {
+        let source = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
+        let haystack = CheetahString::from(source.as_str());
+        let needle_match = source[size / 2..].to_owned();
+        let needle_no_match = "~".repeat(size / 2);
 
         group.throughput(Throughput::Bytes(size as u64));
 
         group.bench_with_input(BenchmarkId::new("match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).ends_with(black_box(&needle_match)))
+            b.iter(|| black_box(black_box(&haystack).ends_with(black_box(needle_match.as_str()))))
         });
 
         group.bench_with_input(BenchmarkId::new("no_match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).ends_with(black_box(&needle_no_match)))
+            b.iter(|| {
+                black_box(black_box(&haystack).ends_with(black_box(needle_no_match.as_str())))
+            })
         });
     }
 
@@ -77,22 +113,31 @@ fn bench_ends_with(c: &mut Criterion) {
 }
 
 fn bench_contains(c: &mut Criterion) {
-    let mut group = c.benchmark_group("contains");
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/contains"));
 
-    for size in [16, 32, 64, 128, 256, 512, 1024, 4096] {
-        let haystack =
-            CheetahString::from(format!("{}x{}", "a".repeat(size / 2), "a".repeat(size / 2)));
-        let needle_match = "x";
-        let needle_no_match = "z";
+    for size in FULL_SIZE_MATRIX {
+        let base = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
+        let needle_match = "01234567";
+        let needle_no_match = "76543210";
 
         group.throughput(Throughput::Bytes(size as u64));
 
-        group.bench_with_input(BenchmarkId::new("match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).contains(black_box(needle_match)))
-        });
+        for (position, index) in [
+            ("match_start", 0),
+            ("match_middle", (size - needle_match.len()) / 2),
+            ("match_end", size - needle_match.len()),
+        ] {
+            let mut source = base.clone();
+            source.replace_range(index..index + needle_match.len(), needle_match);
+            let haystack = CheetahString::from(source);
+            group.bench_with_input(BenchmarkId::new(position, size), &size, |b, _| {
+                b.iter(|| black_box(black_box(&haystack).contains(black_box(needle_match))))
+            });
+        }
 
+        let haystack = CheetahString::from(base);
         group.bench_with_input(BenchmarkId::new("no_match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).contains(black_box(needle_no_match)))
+            b.iter(|| black_box(black_box(&haystack).contains(black_box(needle_no_match))))
         });
     }
 
@@ -100,22 +145,31 @@ fn bench_contains(c: &mut Criterion) {
 }
 
 fn bench_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("find");
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/find"));
 
-    for size in [16, 32, 64, 128, 256, 512, 1024, 4096] {
-        let haystack =
-            CheetahString::from(format!("{}x{}", "a".repeat(size / 2), "a".repeat(size / 2)));
-        let needle_match = "x";
-        let needle_no_match = "z";
+    for size in FULL_SIZE_MATRIX {
+        let base = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
+        let needle_match = "01234567";
+        let needle_no_match = "76543210";
 
         group.throughput(Throughput::Bytes(size as u64));
 
-        group.bench_with_input(BenchmarkId::new("match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).find(black_box(needle_match)))
-        });
+        for (position, index) in [
+            ("match_start", 0),
+            ("match_middle", (size - needle_match.len()) / 2),
+            ("match_end", size - needle_match.len()),
+        ] {
+            let mut source = base.clone();
+            source.replace_range(index..index + needle_match.len(), needle_match);
+            let haystack = CheetahString::from(source);
+            group.bench_with_input(BenchmarkId::new(position, size), &size, |b, _| {
+                b.iter(|| black_box(black_box(&haystack).find(black_box(needle_match))))
+            });
+        }
 
+        let haystack = CheetahString::from(base);
         group.bench_with_input(BenchmarkId::new("no_match", size), &size, |b, _| {
-            b.iter(|| black_box(&haystack).find(black_box(needle_no_match)))
+            b.iter(|| black_box(black_box(&haystack).find(black_box(needle_no_match))))
         });
     }
 
@@ -123,16 +177,18 @@ fn bench_find(c: &mut Criterion) {
 }
 
 fn bench_realistic_workload(c: &mut Criterion) {
-    let mut group = c.benchmark_group("realistic");
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/realistic"));
 
     // Simulate URL parsing
     let url = CheetahString::from("https://api.example.com/v1/users/12345?filter=active&sort=name");
 
     group.bench_function("url_parsing", |b| {
         b.iter(|| {
-            black_box(&url).starts_with("https://")
-                && black_box(&url).contains("api")
-                && black_box(&url).contains("users")
+            black_box(
+                black_box(&url).starts_with(black_box("https://"))
+                    && black_box(&url).contains(black_box("api"))
+                    && black_box(&url).contains(black_box("users")),
+            )
         })
     });
 
@@ -142,9 +198,11 @@ fn bench_realistic_workload(c: &mut Criterion) {
 
     group.bench_function("log_filtering", |b| {
         b.iter(|| {
-            black_box(&log).starts_with("[2024")
-                && black_box(&log).contains("INFO")
-                && black_box(&log).contains("user_id")
+            black_box(
+                black_box(&log).starts_with(black_box("[2024"))
+                    && black_box(&log).contains(black_box("INFO"))
+                    && black_box(&log).contains(black_box("user_id")),
+            )
         })
     });
 
@@ -153,8 +211,10 @@ fn bench_realistic_workload(c: &mut Criterion) {
 
     group.bench_function("content_type_check", |b| {
         b.iter(|| {
-            black_box(&content_type).starts_with("application/")
-                && black_box(&content_type).contains("json")
+            black_box(
+                black_box(&content_type).starts_with(black_box("application/"))
+                    && black_box(&content_type).contains(black_box("json")),
+            )
         })
     });
 
@@ -162,10 +222,7 @@ fn bench_realistic_workload(c: &mut Criterion) {
 }
 
 fn bench_contains_short_needles(c: &mut Criterion) {
-    let mut group = c.benchmark_group("contains_short_needle");
-    group.sample_size(20);
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(2));
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/contains_short_needle"));
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_SIZES {
@@ -200,10 +257,7 @@ fn bench_contains_short_needles(c: &mut Criterion) {
 }
 
 fn bench_find_short_needles(c: &mut Criterion) {
-    let mut group = c.benchmark_group("find_short_needle");
-    group.sample_size(20);
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(2));
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/find_short_needle"));
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_SIZES {
@@ -238,10 +292,7 @@ fn bench_find_short_needles(c: &mut Criterion) {
 }
 
 fn bench_compare_short_needle_contains(c: &mut Criterion) {
-    let mut group = c.benchmark_group("compare_short_needle_contains");
-    group.sample_size(20);
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(2));
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/compare_short_needle_contains"));
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_COMPARE_SIZES {
@@ -288,10 +339,7 @@ fn bench_compare_short_needle_contains(c: &mut Criterion) {
 }
 
 fn bench_compare_short_needle_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group("compare_short_needle_find");
-    group.sample_size(20);
-    group.warm_up_time(Duration::from_millis(500));
-    group.measurement_time(Duration::from_secs(2));
+    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/compare_short_needle_find"));
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_COMPARE_SIZES {
