@@ -185,29 +185,6 @@ Linux AddressSanitizer, transition fuzzing, and split differential fuzzing.
 The unsafe constructors are explicitly named and require the caller to prove
 UTF-8 validity. Safe byte constructors validate before creating text.
 
-The historical local diagnostic record, with its own candidate identity,
-execution counts, exclusions, and SHA-256 log digests, is in
-[`bench-results/safety/2026-07-26-local/summary.md`](bench-results/safety/2026-07-26-local/summary.md).
-Historical downstream compile and representative-test diagnostics are in the
-[archived crater summary](bench-results/crater/rocketmq-6d286fadd/summary.md).
-Neither record substitutes for an exact-candidate release attestation. The
-stable unsafe-site inventory is in
-[`docs/stable-unsafe-audit.md`](docs/stable-unsafe-audit.md).
-
-## Migration and architecture
-
-- [v2 to v3 migration](docs/migration-v2-to-v3.md)
-- [ADR 001: immutable canonical value](docs/adr/001-immutable-cheetah-string.md)
-- [ADR 002: bytes copy boundary](docs/adr/002-bytes-copy-boundary.md)
-- [ADR 003: SIMD policy](docs/adr/003-simd-policy.md)
-- [ADR 004: split capability](docs/adr/004-split-iterator-capability.md)
-- [ADR 005: performance gates](docs/adr/005-performance-gates.md)
-- [ADR 006: rejected packed boundary](docs/adr/006-experimental-packed-boundary.md)
-
-The v3 alpha temporarily retains several deprecated v2 spellings so large
-read-only consumers can validate the new representation incrementally.
-Deprecated names do not retain mutable v2 semantics.
-
 ## Projects using CheetahString
 
 - [RocketMQ Rust](https://github.com/mxsm/rocketmq-rust)
