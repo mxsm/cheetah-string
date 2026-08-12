@@ -38,11 +38,21 @@
 //! Substring search through `find()` and `contains()` continues to use
 //! `memchr`/`memmem`, which is the stable default search backend.
 //!
+//! # Retired experimental features
+//!
+//! The former `experimental-packed` flag is a compatibility no-op. Its v1
+//! public type was removed because integer-to-pointer reconstruction did not
+//! satisfy Rust's strict-provenance model.
+//!
+//! ```compile_fail
+//! use cheetah_string::packed::PackedCheetahString;
+//! ```
+//!
 //! To opt into the isolated experiment:
 //!
 //! ```toml
 //! [dependencies]
-//! cheetah-string = { version = "=3.0.0-alpha.1", features = ["experimental-simd"] }
+//! cheetah-string = { version = "3.1.0", features = ["experimental-simd"] }
 //! ```
 //!
 //! # Example
@@ -78,9 +88,6 @@ mod serde;
 
 #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
 mod simd;
-
-#[cfg(feature = "experimental-packed")]
-pub mod packed;
 
 #[cfg(feature = "bytes")]
 pub use cheetah_bytes::{CheetahBytes, FromUtf8BytesError};

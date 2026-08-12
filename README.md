@@ -10,7 +10,8 @@ systems. It stores short text inline, keeps static text allocation-free, and
 shares long dynamic text through `Arc<str>`. The same value contract works with
 `std` and `no_std + alloc`.
 
-Version `3.0.0-alpha.1` is the opt-in preview of the immutable architecture.
+Version `3.1.0` is the supported 3.x release line for the immutable
+architecture.
 
 ## Design contract
 
@@ -30,11 +31,11 @@ therefore cannot change clone complexity. Use:
 
 ## Installation
 
-Opt into the alpha explicitly:
+Add the crate to your project:
 
 ```toml
 [dependencies]
-cheetah-string = "=3.0.0-alpha.1"
+cheetah-string = "3.1.0"
 ```
 
 With optional integrations:
@@ -42,7 +43,7 @@ With optional integrations:
 ```toml
 [dependencies]
 cheetah-string = {
-  version = "=3.0.0-alpha.1",
+  version = "3.1.0",
   features = ["serde", "bytes"]
 }
 ```
@@ -133,8 +134,8 @@ let error = CheetahString::try_copy_from_bytes(invalid.clone()).unwrap_err();
 assert_eq!(error.into_bytes(), invalid);
 ```
 
-The full executable contract is in
-[`docs/bytes-interop.md`](docs/bytes-interop.md).
+The conversion matrix above is covered by `tests/bytes.rs` and
+`tests/allocation_contract.rs`.
 
 ## Features
 
@@ -145,9 +146,15 @@ The full executable contract is in
 | `bytes` | No | `CheetahBytes` and explicit byte/text conversion |
 | `experimental-simd` | No | Isolated x86_64 SSE2 benchmark path; not recommended for production |
 | `simd` | No | Deprecated alpha compatibility alias for `experimental-simd` |
-| `experimental-packed` | No | Unstable packed-representation prototype |
+| `experimental-packed` | No | Deprecated no-op retained for 3.x dependency compatibility |
 
 Optional features do not change the stable `CheetahString` layout.
+
+The former packed v1 type was removed in 3.1 because its heap representation
+round-tripped an allocation pointer through `usize`, which strict-provenance
+Miri rejected. There is no safe 24-byte drop-in replacement. Use
+`CheetahString` for immutable text or `CheetahBuilder`/`String` while mutation
+continues.
 
 ## Performance evidence
 
@@ -165,22 +172,15 @@ cargo bench --bench mq_remoting_header
 cargo bench --bench mq_topic
 ```
 
-Thresholds, metadata requirements, and reproduction commands are documented in
-[`docs/performance-gates.md`](docs/performance-gates.md). Hosted-runner and local
-benchmark results are diagnostic; they do not independently establish a
-release-grade performance pass.
-
-The architecture/optimization design scores 96/100 only when all 14 versioned
-conditions are evidenced. PR performance may pass while that aggregate remains
-incomplete; final comparison only certifies its performance scope, while
-release verification fails closed on every missing live attestation. See the
-[release evidence discovery contract](bench-results/release/README.md).
+Hosted-runner and local benchmark results are diagnostic; they do not
+independently establish a release-grade performance pass. The versioned
+allocation and layout tests are the deterministic performance contracts.
 
 ## Safety and portability
 
-Every deterministic CI run covers formatting, Clippy, Rust 1.75, all features,
-`no_std`, exact layout, and allocation contracts. Nightly validation adds Miri,
-Linux AddressSanitizer, transition fuzzing, and split differential fuzzing.
+The repository's workflows are the authoritative record of automated checks.
+Release validation is fail-closed: formatting, linting, tests, dependency audit,
+and package construction must complete before any tag or publication step.
 
 The unsafe constructors are explicitly named and require the caller to prove
 UTF-8 validity. Safe byte constructors validate before creating text.
