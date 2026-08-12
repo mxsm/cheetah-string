@@ -8,6 +8,7 @@ use super::CheetahString;
 use crate::inline::InlineStr;
 
 impl CheetahString {
+    /// Creates an empty inline string.
     #[inline]
     pub const fn empty() -> Self {
         CheetahString {
@@ -15,11 +16,16 @@ impl CheetahString {
         }
     }
 
+    /// Creates an empty string.
     #[inline]
     pub fn new() -> Self {
         CheetahString::default()
     }
 
+    /// Creates a string that borrows a static string slice without allocation.
+    ///
+    /// Explicit static construction takes precedence over inline storage,
+    /// including when `s` is 23 bytes or shorter.
     #[inline]
     pub const fn from_static_str(s: &'static str) -> Self {
         CheetahString {
@@ -35,11 +41,12 @@ impl CheetahString {
     /// lifetime of the returned `CheetahString`.
     #[inline]
     pub unsafe fn from_utf8_unchecked_vec(s: Vec<u8>) -> Self {
-        CheetahString::from_validated_vec_unchecked(s)
+        // SAFETY: the caller guarantees that the complete vector is valid UTF-8.
+        unsafe { CheetahString::from_validated_vec_unchecked(s) }
     }
 
     #[inline]
-    fn from_validated_vec_unchecked(s: Vec<u8>) -> Self {
+    unsafe fn from_validated_vec_unchecked(s: Vec<u8>) -> Self {
         if s.len() <= INLINE_CAPACITY {
             // SAFETY: Callers validate UTF-8 before reaching this helper.
             let value = unsafe { str::from_utf8_unchecked(&s) };
@@ -73,7 +80,8 @@ impl CheetahString {
     /// ```
     pub fn try_from_vec(v: Vec<u8>) -> Result<Self, Utf8Error> {
         str::from_utf8(&v)?;
-        Ok(CheetahString::from_validated_vec_unchecked(v))
+        // SAFETY: validation above covers the complete owned buffer.
+        Ok(unsafe { CheetahString::from_validated_vec_unchecked(v) })
     }
 
     /// Creates a `CheetahString` from a byte slice with UTF-8 validation.
@@ -133,13 +141,15 @@ impl CheetahString {
     /// The caller must guarantee that `s` contains valid UTF-8.
     #[inline]
     pub unsafe fn from_utf8_unchecked_arc_vec(s: Arc<Vec<u8>>) -> Self {
-        CheetahString::from_validated_arc_vec_unchecked(s)
+        // SAFETY: the caller guarantees that the complete shared vector is valid UTF-8.
+        unsafe { CheetahString::from_validated_arc_vec_unchecked(s) }
     }
 
     #[inline]
-    fn from_validated_arc_vec_unchecked(s: Arc<Vec<u8>>) -> Self {
+    unsafe fn from_validated_arc_vec_unchecked(s: Arc<Vec<u8>>) -> Self {
         match Arc::try_unwrap(s) {
-            Ok(v) => CheetahString::from_validated_vec_unchecked(v),
+            // SAFETY: this helper inherits the valid UTF-8 precondition.
+            Ok(v) => unsafe { CheetahString::from_validated_vec_unchecked(v) },
             Err(s) => {
                 // SAFETY: Callers validate UTF-8 before reaching this helper.
                 unsafe { CheetahString::from_utf8_unchecked_bytes(s.as_slice()) }
@@ -147,6 +157,10 @@ impl CheetahString {
         }
     }
 
+    /// Creates a value from a borrowed string slice.
+    ///
+    /// Values up to 23 bytes use inline storage; longer values are copied into
+    /// a shared immutable allocation.
     #[inline]
     pub fn from_slice(s: &str) -> Self {
         if let Some(inline) = InlineStr::from_str(s) {
@@ -162,6 +176,7 @@ impl CheetahString {
         }
     }
 
+    /// Freezes an owned string into inline or shared immutable storage.
     #[inline]
     pub fn from_string(s: String) -> Self {
         CheetahString::from_string_shared(s)
@@ -199,6 +214,10 @@ impl CheetahString {
         }
     }
 
+    /// Creates a value from a shared owned `String`.
+    ///
+    /// A uniquely owned input can be consumed directly. A shared input is
+    /// copied because `Arc<String>` cannot be reinterpreted as `Arc<str>`.
     #[inline]
     pub fn from_arc_string(s: Arc<String>) -> Self {
         match Arc::try_unwrap(s) {
@@ -209,6 +228,12 @@ impl CheetahString {
 
     #[inline]
     #[cfg(feature = "bytes")]
+    /// Validates and copies a `bytes::Bytes` buffer into text storage.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error that retains the original buffer when UTF-8
+    /// validation fails.
     pub fn try_copy_from_bytes(b: bytes::Bytes) -> Result<Self, crate::FromUtf8BytesError> {
         match str::from_utf8(b.as_ref()) {
             Ok(value) => Ok(CheetahString::from_slice(value)),
@@ -220,6 +245,14 @@ impl CheetahString {
         since = "2.2.0",
         note = "use try_copy_from_bytes; its error preserves the original buffer"
     )]
+    /// Validates and copies a `bytes::Bytes` buffer into text storage.
+    ///
+    /// This compatibility method discards the original buffer on error. New
+    /// code should use [`CheetahString::try_copy_from_bytes`] instead.
+    ///
+    /// # Errors
+    ///
+    /// Returns the UTF-8 validation error when the buffer is not valid text.
     #[inline]
     #[cfg(feature = "bytes")]
     pub fn try_from_bytes_buf(b: bytes::Bytes) -> Result<Self, Utf8Error> {
@@ -234,16 +267,18 @@ impl CheetahString {
     #[inline]
     #[cfg(feature = "bytes")]
     pub unsafe fn from_utf8_unchecked_bytes_buf(b: bytes::Bytes) -> Self {
-        CheetahString::from_validated_bytes_unchecked(b)
+        // SAFETY: the caller guarantees that the complete buffer is valid UTF-8.
+        unsafe { CheetahString::from_validated_bytes_unchecked(b) }
     }
 
     #[inline]
     #[cfg(feature = "bytes")]
-    fn from_validated_bytes_unchecked(b: bytes::Bytes) -> Self {
+    unsafe fn from_validated_bytes_unchecked(b: bytes::Bytes) -> Self {
         // SAFETY: Callers validate UTF-8 before reaching this helper.
         unsafe { CheetahString::from_utf8_unchecked_bytes(b.as_ref()) }
     }
 
+    /// Borrows the value as a string slice.
     #[inline]
     pub fn as_str(&self) -> &str {
         match &self.inner {
@@ -253,6 +288,7 @@ impl CheetahString {
         }
     }
 
+    /// Borrows the UTF-8 encoding as bytes.
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         match &self.inner {
@@ -262,6 +298,7 @@ impl CheetahString {
         }
     }
 
+    /// Returns the UTF-8 length in bytes.
     #[inline]
     pub fn len(&self) -> usize {
         match &self.inner {
@@ -271,6 +308,7 @@ impl CheetahString {
         }
     }
 
+    /// Returns `true` when the value contains no bytes.
     #[inline]
     pub fn is_empty(&self) -> bool {
         match &self.inner {

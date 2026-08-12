@@ -96,6 +96,7 @@ pub(crate) fn ends_with_bytes(haystack: &[u8], needle: &[u8]) -> bool {
 #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
 #[target_feature(enable = "sse2")]
 #[inline]
+#[allow(unused_unsafe)] // These intrinsics became safe after the original MSRV.
 unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
     debug_assert_eq!(a.len(), b.len());
 
@@ -114,8 +115,11 @@ unsafe fn eq_bytes_sse2(a: &[u8], b: &[u8]) -> bool {
                 _mm_loadu_si128(b.as_ptr().add(offset) as *const __m128i),
             )
         };
-        let cmp = _mm_cmpeq_epi8(a_vec, b_vec);
-        let mask = _mm_movemask_epi8(cmp);
+        // SAFETY: SSE2 is enabled for this function. Rust versions differ on
+        // whether these two intrinsics require an explicit unsafe block.
+        let cmp = unsafe { _mm_cmpeq_epi8(a_vec, b_vec) };
+        // SAFETY: `cmp` is a valid SSE2 vector produced immediately above.
+        let mask = unsafe { _mm_movemask_epi8(cmp) };
 
         if mask != 0xFFFF {
             return false;

@@ -85,6 +85,16 @@ fn unsafe_bytes_to_string_conversion_is_explicit() {
     assert_eq!(s, "hello");
 }
 
+#[test]
+fn unsafe_bytes_buffer_constructor_round_trips_valid_utf8() {
+    let bytes = bytes::Bytes::from_static("validated bytes ✓".as_bytes());
+
+    // SAFETY: the buffer is the UTF-8 encoding of a string literal.
+    let value = unsafe { CheetahString::from_utf8_unchecked_bytes_buf(bytes) };
+
+    assert_eq!(value, "validated bytes ✓");
+}
+
 #[cfg(feature = "serde")]
 #[test]
 fn serde_uses_bytes_semantics_for_cheetah_bytes() {

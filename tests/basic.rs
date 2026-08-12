@@ -268,6 +268,31 @@ fn test_try_from_valid_vec() {
 }
 
 #[test]
+fn unsafe_vec_constructor_round_trips_valid_utf8() {
+    let bytes = "validated vector ✓".as_bytes().to_vec();
+
+    // SAFETY: `bytes` was produced from a valid UTF-8 string.
+    let value = unsafe { CheetahString::from_utf8_unchecked_vec(bytes) };
+
+    assert_eq!(value, "validated vector ✓");
+}
+
+#[test]
+fn unsafe_arc_vec_constructor_round_trips_unique_and_shared_inputs() {
+    let unique = Arc::new("unique arc ✓".as_bytes().to_vec());
+    // SAFETY: `unique` contains bytes copied from a valid UTF-8 string.
+    let unique_value = unsafe { CheetahString::from_utf8_unchecked_arc_vec(unique) };
+    assert_eq!(unique_value, "unique arc ✓");
+
+    let shared = Arc::new("shared arc ✓".as_bytes().to_vec());
+    let retained = Arc::clone(&shared);
+    // SAFETY: `shared` contains bytes copied from a valid UTF-8 string.
+    let shared_value = unsafe { CheetahString::from_utf8_unchecked_arc_vec(shared) };
+    assert_eq!(shared_value, "shared arc ✓");
+    assert_eq!(retained.as_slice(), "shared arc ✓".as_bytes());
+}
+
+#[test]
 fn test_try_from_invalid_vec() {
     let invalid = vec![0xFF, 0xFE];
     let result = CheetahString::try_from_vec(invalid);

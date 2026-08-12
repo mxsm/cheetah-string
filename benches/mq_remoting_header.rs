@@ -1,7 +1,6 @@
 use cheetah_string::CheetahString;
 use compact_str::CompactString;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use smartstring::alias::String as SmartString;
 
 fn header_fields() -> Vec<(&'static str, &'static str)> {
     vec![
@@ -68,18 +67,6 @@ fn bench_header_encode(c: &mut Criterion) {
         )
     });
 
-    group.bench_function("SmartString", |b| {
-        b.iter_batched(
-            || (),
-            |_| {
-                black_box(encode_pairs(black_box(&fields).iter().map(
-                    |(key, value)| (SmartString::from(*key), SmartString::from(*value)),
-                )))
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
     group.bench_function("CheetahString", |b| {
         b.iter_batched(
             || (),
@@ -126,25 +113,6 @@ fn bench_header_parse(c: &mut Criterion) {
                         fields.push((
                             black_box(CompactString::from(key)),
                             black_box(CompactString::from(value)),
-                        ));
-                    }
-                }
-                black_box(fields)
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
-    group.bench_function("SmartString", |b| {
-        b.iter_batched(
-            || (),
-            |_| {
-                let mut fields = Vec::new();
-                for line in black_box(encoded.as_str()).lines() {
-                    if let Some((key, value)) = line.split_once('=') {
-                        fields.push((
-                            black_box(SmartString::from(key)),
-                            black_box(SmartString::from(value)),
                         ));
                     }
                 }

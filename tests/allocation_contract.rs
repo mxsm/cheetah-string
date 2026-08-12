@@ -98,7 +98,7 @@ fn v3_allocation_and_clone_contracts() {
     assert_clone_allocations(&borrowed_value);
 
     let mut exact_owned = String::with_capacity(1024);
-    exact_owned.extend(std::iter::repeat('o').take(1024));
+    exact_owned.extend(std::iter::repeat_n('o', 1024));
     assert_eq!(exact_owned.len(), exact_owned.capacity());
     let (count, bytes, owned_value) =
         measure(|| CheetahString::from_string(black_box(exact_owned)));

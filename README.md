@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/cheetah-string.svg)](https://crates.io/crates/cheetah-string)
 [![Documentation](https://docs.rs/cheetah-string/badge.svg)](https://docs.rs/cheetah-string)
 [![License](https://img.shields.io/badge/license-MIT%2FApache--2.0-blue.svg)](https://github.com/mxsm/cheetah-string)
-[![Rust Version](https://img.shields.io/badge/rust-1.75%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust Version](https://img.shields.io/badge/rust-1.95%2B-orange.svg)](https://www.rust-lang.org)
 
 `CheetahString` is an immutable, clone-cheap UTF-8 value for latency-sensitive
 systems. It stores short text inline, keeps static text allocation-free, and
@@ -48,7 +48,11 @@ cheetah-string = {
 }
 ```
 
-The minimum supported Rust version is 1.75.
+The minimum supported Rust version is 1.95.
+
+The packaged consumer matrix can be reproduced with
+`bash scripts/check-msrv-package.sh 1.95` on Unix or
+`pwsh -File scripts/check-msrv-package.ps1 -Msrv 1.95` on Windows.
 
 ## Quick start
 
@@ -184,6 +188,13 @@ and package construction must complete before any tag or publication step.
 
 The unsafe constructors are explicitly named and require the caller to prove
 UTF-8 validity. Safe byte constructors validate before creating text.
+
+CI enforces the Rust 1.95 packaged-consumer matrix, warning-free rustdoc,
+locked dependency auditing, and repository workflow contracts. The Safety
+workflow runs Miri over the stable text/byte invariants and compiles every
+libFuzzer target with AddressSanitizer on pull requests and on a weekly
+schedule. See [Safety model](SAFETY.md) for the maintained unsafe-boundary
+inventory and local verification commands.
 
 ## Projects using CheetahString
 

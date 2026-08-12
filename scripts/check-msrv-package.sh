@@ -1,27 +1,31 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-MSRV=${1:-1.75.0}
+MSRV=${1:-1.95}
 VERSION=$(cargo metadata --no-deps --format-version 1 |
   python3 -c 'import json,sys; print(json.load(sys.stdin)["packages"][0]["version"])')
-# `cargo package` always stages the unpacked source under `target/package`;
-# CARGO_TARGET_DIR applies to compilation artifacts, not this package staging area.
-PACKAGE_DIR="target/package/cheetah-string-$VERSION"
+CRATE_ARCHIVE="target/package/cheetah-string-$VERSION.crate"
 
 cargo package --no-verify
-[ -d "$PACKAGE_DIR" ] || {
-  echo "packaged source directory is missing: $PACKAGE_DIR" >&2
+[ -f "$CRATE_ARCHIVE" ] || {
+  echo "package archive is missing: $CRATE_ARCHIVE" >&2
   exit 1
 }
-PACKAGE_DIR=$(cd "$PACKAGE_DIR" && pwd)
+CRATE_ARCHIVE=$(cd "$(dirname "$CRATE_ARCHIVE")" && pwd)/$(basename "$CRATE_ARCHIVE")
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
+tar -xzf "$CRATE_ARCHIVE" -C "$TMP"
+PACKAGE_DIR="$TMP/cheetah-string-$VERSION"
+[ -d "$PACKAGE_DIR" ] || {
+  echo "unpacked package directory is missing: $PACKAGE_DIR" >&2
+  exit 1
+}
 
 check_consumer() {
   NAME=$1
   FEATURES=$2
-  CONSUMER="$TMP/$NAME"
+  CONSUMER="$TMP/consumer-$NAME"
   cargo "+$MSRV" new --lib --name "$NAME" "$CONSUMER" >/dev/null
   if [ -n "$FEATURES" ]; then
     cargo "+$MSRV" add \

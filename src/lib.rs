@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(unsafe_op_in_unsafe_fn)]
+#![warn(missing_docs)]
 
 //! An immutable, clone-cheap UTF-8 value for latency-sensitive systems.
 //!
@@ -17,7 +18,7 @@
 //! `String` representation.
 //!
 //! The crate supports `no_std + alloc`. Optional `serde` integration preserves
-//! the text contract, while the `bytes` feature exposes [`CheetahBytes`] for
+//! the text contract, while the `bytes` feature exposes `CheetahBytes` for
 //! byte-oriented data. Byte-to-text conversion validates and copies; only
 //! `bytes::Bytes <-> CheetahBytes` is zero-copy.
 //!
@@ -33,7 +34,7 @@
 //! standard slice/`str` implementations so the compiler and standard library
 //! select the best portable strategy. The `experimental-simd` feature exposes
 //! an x86_64 SSE2 experiment for controlled benchmarking only. The deprecated
-//! `simd` feature remains an alpha compatibility alias.
+//! `simd` feature remains a 3.x compatibility alias.
 //!
 //! Substring search through `find()` and `contains()` continues to use
 //! `memchr`/`memmem`, which is the stable default search backend.
