@@ -62,6 +62,20 @@ class RepositoryContractTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, source)
 
+    def test_pattern_dispatch_is_private_with_a_compatibility_shim(self) -> None:
+        pattern = read("src/cheetah_string/pattern.rs")
+        query = read("src/cheetah_string/query.rs")
+        self.assertIn("pub(super) fn classify", pattern)
+        self.assertNotIn(".as_str_pattern()", query)
+        self.assertIn("fn as_str_pattern", pattern)
+        self.assertIn("pub enum StrPatternImpl", pattern)
+
+    def test_minor_release_semver_workflow_is_present(self) -> None:
+        workflow = read(".github/workflows/api-compatibility.yml")
+        self.assertIn("cargo-semver-checks --version 0.50.0 --locked", workflow)
+        self.assertIn("--baseline-rev origin/main", workflow)
+        self.assertIn("--release-type minor", workflow)
+
     def test_workflow_actions_are_immutable(self) -> None:
         for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
             text = workflow.read_text(encoding="utf-8")

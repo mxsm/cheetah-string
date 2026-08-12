@@ -36,14 +36,18 @@
   64-bit targets while preserving the 23-byte inline capacity. The stable
   representation uses constrained Rust enum discriminants as layout niches and
   does not encode pointers as integers.
+- Moved text-query pattern dispatch behind a private sealed classifier while
+  retaining the 3.1 compatibility method and dispatch value unchanged.
+- Added downstream error-signature contracts and an automated minor-release
+  semver comparison against the main branch.
 
 ### Migration
 
 - Replace read-only `PackedCheetahString` values with `CheetahString`.
 - Replace append-heavy uses with `CheetahBuilder` or `String`, freezing to
   `CheetahString` only after mutation completes.
-- Code that relied on a 24-byte object has no safe drop-in replacement and
-  must re-evaluate its container-memory requirements.
+- Code that relied on the retired mutable packed API must still migrate its
+  mutation flow; the stable immutable value now provides a safe 24-byte layout.
 
 ### Compatibility
 

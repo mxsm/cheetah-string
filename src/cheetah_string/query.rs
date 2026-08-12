@@ -1,6 +1,6 @@
 use core::str;
 
-use super::pattern::{SplitPattern, SplitStr, StrPattern, StrPatternImpl};
+use super::pattern::{classify, SplitPattern, SplitStr, StrPattern, StrPatternKind};
 use super::CheetahString;
 
 impl CheetahString {
@@ -23,9 +23,9 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn starts_with<P: StrPattern>(&self, pat: P) -> bool {
-        match pat.as_str_pattern() {
-            StrPatternImpl::Char(c) => self.as_str().starts_with(c),
-            StrPatternImpl::Str(s) => {
+        match classify(&pat) {
+            StrPatternKind::Char(c) => self.as_str().starts_with(c),
+            StrPatternKind::Str(s) => {
                 #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
                 {
                     if s.len() >= crate::simd::SIMD_THRESHOLD {
@@ -71,9 +71,9 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn ends_with<P: StrPattern>(&self, pat: P) -> bool {
-        match pat.as_str_pattern() {
-            StrPatternImpl::Char(c) => self.as_str().ends_with(c),
-            StrPatternImpl::Str(s) => {
+        match classify(&pat) {
+            StrPatternKind::Char(c) => self.as_str().ends_with(c),
+            StrPatternKind::Str(s) => {
                 #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
                 {
                     if s.len() >= crate::simd::SIMD_THRESHOLD {
@@ -118,9 +118,9 @@ impl CheetahString {
     /// ```
     #[inline]
     pub fn contains<P: StrPattern>(&self, pat: P) -> bool {
-        match pat.as_str_pattern() {
-            StrPatternImpl::Char(c) => self.as_str().contains(c),
-            StrPatternImpl::Str(s) => {
+        match classify(&pat) {
+            StrPatternKind::Char(c) => self.as_str().contains(c),
+            StrPatternKind::Str(s) => {
                 crate::search::find_bytes(self.as_bytes(), s.as_bytes()).is_some()
             }
         }

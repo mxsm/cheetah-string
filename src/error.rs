@@ -1,7 +1,12 @@
 use core::fmt;
 use core::str::Utf8Error;
 
-/// Errors that can occur during `CheetahString` operations.
+/// Compatibility error type for range operations and explicit conversions.
+///
+/// [`CheetahString::try_substring`](crate::CheetahString::try_substring) returns
+/// this type through the crate's [`Result`](crate::Result) alias. UTF-8 text
+/// constructors return [`Utf8Error`] directly; `Utf8Error` can still be wrapped
+/// through [`From`] for source-compatible 3.1 error aggregation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
     /// UTF-8 validation failed.

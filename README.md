@@ -172,9 +172,9 @@ Optional features do not change the stable `CheetahString` layout.
 
 The former packed v1 type was removed in 3.1 because its heap representation
 round-tripped an allocation pointer through `usize`, which strict-provenance
-Miri rejected. There is no safe 24-byte drop-in replacement. Use
-`CheetahString` for immutable text or `CheetahBuilder`/`String` while mutation
-continues.
+Miri rejected. The stable immutable `CheetahString` now reaches 24 bytes through
+safe Rust enum niches, but it is not a mutable `PackedCheetahString` drop-in.
+Use `CheetahBuilder` or `String` while mutation continues.
 
 ## Performance evidence
 
@@ -217,6 +217,10 @@ workflow runs Miri over the stable text/byte invariants and compiles every
 libFuzzer target with AddressSanitizer on pull requests and on a weekly
 schedule. See [Safety model](SAFETY.md) for the maintained unsafe-boundary
 inventory and local verification commands.
+
+Pattern and error signatures follow the source-compatible 3.1 policy described
+in [API compatibility](API.md). A dedicated workflow compares every pull request
+with `origin/main` under minor-release semver rules.
 
 ## Projects using CheetahString
 
