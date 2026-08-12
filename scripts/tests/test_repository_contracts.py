@@ -121,7 +121,7 @@ class RepositoryContractTests(unittest.TestCase):
         for path in retired:
             self.assertFalse((ROOT / path).exists(), path)
 
-    def test_docs_directory_is_not_tracked(self) -> None:
+    def test_docs_directory_is_not_tracked_or_packaged(self) -> None:
         tracked = subprocess.run(
             ["git", "ls-files", "docs"],
             cwd=ROOT,
@@ -130,6 +130,10 @@ class RepositoryContractTests(unittest.TestCase):
             check=True,
         )
         self.assertEqual(tracked.stdout.strip(), "")
+
+        with (ROOT / "Cargo.toml").open("rb") as manifest_file:
+            manifest = tomllib.load(manifest_file)
+        self.assertIn("docs/**", manifest["package"]["exclude"])
 
 
 if __name__ == "__main__":

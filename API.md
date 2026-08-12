@@ -1,8 +1,16 @@
 # API compatibility
 
-CheetahString 3.1 keeps the existing 3.x source surface while tightening the
-private implementation. Public methods, traits, variants, aliases, and return
-types are not removed or renamed in this release line.
+CheetahString 3.1 keeps the stable 3.x source surface while tightening the
+private implementation. Public stable methods, traits, variants, aliases, and
+return types are not removed or renamed in this release line.
+
+There is one documented safety exception: the published
+`experimental-packed` module was removed after strict-provenance Miri exposed
+undefined behavior in its safe API. The Cargo feature name remains as a no-op
+for dependency resolution, but code importing `cheetah_string::packed` must
+migrate to `CheetahString` or `CheetahBuilder`. A registry comparison against
+3.0.0 therefore reports the expected removal of the experimental module, its
+constant, and `PackedCheetahString`.
 
 ## Pattern contract
 
@@ -46,9 +54,12 @@ expressions.
 ## Automated compatibility gate
 
 `.github/workflows/api-compatibility.yml` runs `cargo-semver-checks` with
-minor-release rules against `origin/main` and all features. The repository also
-compiles a downstream-style test that calls the hidden compatibility method and
-checks the exact constructor and substring result types.
+minor-release rules against `origin/main` and all features. This protects each
+new pull request after the packed retirement baseline; it does not conceal the
+approved experimental safety removal relative to the published 3.0.0 crate.
+The repository also compiles a downstream-style test that calls the hidden
+compatibility method and checks the exact constructor and substring result
+types.
 
 Local reproduction:
 
