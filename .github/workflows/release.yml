@@ -1,87 +1,69 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, for example 2.1.0"
+        description: "Version to release, for example 3.1.0"
         required: true
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: full
 
 jobs:
-  publish:
+  validate:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Checkout candidate
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
         with:
           toolchain: stable
+          components: rustfmt, clippy
 
       - name: Resolve release version
         id: version
         shell: bash
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ inputs.version }}"
-          else
-            VERSION="${GITHUB_REF_NAME#v}"
-          fi
+          VERSION="$INPUT_VERSION"
 
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid release version: $VERSION" >&2
+            echo "Invalid release version" >&2
             exit 1
           fi
 
-          MANIFEST_VERSION="$(cargo metadata --no-deps --format-version 1 | python3 -c 'import json, sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
+          MANIFEST_VERSION="$(cargo metadata --no-deps --format-version 1 |
+            python3 -c 'import json, sys; print(json.load(sys.stdin)["packages"][0]["version"])')"
           if [[ "$MANIFEST_VERSION" != "$VERSION" ]]; then
-            echo "Cargo.toml version $MANIFEST_VERSION does not match release version $VERSION" >&2
+            echo "Cargo.toml version does not match the requested release" >&2
             exit 1
           fi
 
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Create tag for manual release
-        if: github.event_name == 'workflow_dispatch'
-        shell: bash
-        run: |
-          TAG="${{ steps.version.outputs.tag }}"
-          CURRENT_SHA="$(git rev-parse HEAD)"
-
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            TAG_SHA="$(git rev-list -n 1 "$TAG")"
-            if [[ "$TAG_SHA" != "$CURRENT_SHA" ]]; then
-              echo "Tag $TAG already exists at $TAG_SHA, not current HEAD $CURRENT_SHA" >&2
-              exit 1
-            fi
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git tag "$TAG"
-            git push origin "$TAG"
-          fi
-
       - name: Check formatting
-        run: cargo fmt -- --check
+        run: cargo fmt --all -- --check
 
-      - name: Lint
-        run: cargo clippy --all-features -- -D warnings
+      - name: Lint all targets and features
+        run: cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Test all features
         run: cargo test --all-features
@@ -89,22 +71,98 @@ jobs:
       - name: Test no-default feature matrix
         run: cargo test --no-default-features --features serde,bytes,simd
 
+      - name: Install dependency auditor
+        run: cargo install cargo-audit --version 0.22.0 --locked
+
+      - name: Audit dependencies
+        run: cargo audit -D warnings
+
       - name: Package crate
         run: cargo package
 
+      - name: Create candidate digest
+        shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cd target/package
+          sha256sum "cheetah-string-$VERSION.crate" > "cheetah-string-$VERSION.crate.sha256"
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cheetah-string-release-candidate
+          path: |
+            target/package/cheetah-string-${{ steps.version.outputs.version }}.crate
+            target/package/cheetah-string-${{ steps.version.outputs.version }}.crate.sha256
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: [validate]
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout validated commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
+        with:
+          toolchain: stable
+
+      - name: Download release candidate
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: cheetah-string-release-candidate
+          path: release-candidate
+
+      - name: Verify candidate digest
+        shell: bash
+        working-directory: release-candidate
+        env:
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: sha256sum -c "cheetah-string-$VERSION.crate.sha256"
+
+      - name: Create tag for manual release
+        shell: bash
+        env:
+          TAG: ${{ needs.validate.outputs.tag }}
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          git fetch --force --tags origin
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            TAG_SHA="$(git rev-list -n 1 "$TAG")"
+            if [[ "$TAG_SHA" != "$EXPECTED_SHA" ]]; then
+              echo "Release tag exists at a different commit" >&2
+              exit 1
+            fi
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" "$EXPECTED_SHA" -m "cheetah-string $TAG"
+            git push origin "$TAG"
+          fi
+
       - name: Publish crate to crates.io
-        run: cargo publish --token "$CARGO_REGISTRY_TOKEN"
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: cargo publish --token "$CARGO_REGISTRY_TOKEN"
 
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.version.outputs.tag }}
-          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
           gh release create "$TAG" \
-            "target/package/cheetah-string-$VERSION.crate#cheetah-string-$VERSION.crate" \
+            "release-candidate/cheetah-string-$VERSION.crate#cheetah-string-$VERSION.crate" \
             --verify-tag \
             --title "cheetah-string $TAG" \
             --generate-notes
