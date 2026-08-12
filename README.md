@@ -27,8 +27,8 @@ On supported 32-bit and 64-bit targets, both `CheetahString` and
 `Option<CheetahString>` occupy 24 bytes. A 10,000-element vector therefore uses
 240,000 bytes of element slots instead of the previous 320,000-byte contract.
 This is achieved with safe Rust enum niches; string pointers are never converted
-to integers. See [Stable layout](LAYOUT.md) for the exact representation and
-portability gate.
+to integers. `tests/layout_snapshot.rs` and `tests/allocation_contract.rs`
+enforce the representation, container footprint, and portability contract.
 
 The representation has no mutable `Owned(String)` state. Construction history
 therefore cannot change clone complexity. Use:
@@ -198,9 +198,8 @@ cargo bench --bench mq_topic
 Hosted-runner and local benchmark results are diagnostic; they do not
 independently establish a release-grade performance pass. The versioned
 allocation and layout tests are the deterministic performance contracts.
-See [Performance contracts](PERFORMANCE.md) for the exact enforced budgets and
-the distinction between deterministic gates and diagnostic timing results, and
-[Stable layout](LAYOUT.md) for the provenance-preserving 24-byte representation.
+`scripts/verify-allocation-evidence.py` independently validates the schema-v3
+allocation record emitted by the shared-backing benchmark.
 
 ## Safety and portability
 
@@ -215,12 +214,13 @@ CI enforces the Rust 1.95 packaged-consumer matrix, warning-free rustdoc,
 locked dependency auditing, and repository workflow contracts. The Safety
 workflow runs Miri over the stable text/byte invariants and compiles every
 libFuzzer target with AddressSanitizer on pull requests and on a weekly
-schedule. See [Safety model](SAFETY.md) for the maintained unsafe-boundary
-inventory and local verification commands.
+schedule. The maintained commands and toolchain setup are encoded directly in
+`.github/workflows/safety.yml`; unsafe constructor obligations remain next to
+their public APIs in `src/cheetah_string/construct.rs` and `src/bytes.rs`.
 
-Pattern and error signatures follow the source-compatible 3.1 policy described
-in [API compatibility](API.md). A dedicated workflow compares every pull request
-with `origin/main` under minor-release semver rules.
+Pattern and error signatures are covered by `tests/api_contract.rs`. The
+dedicated `.github/workflows/api-compatibility.yml` workflow compares every pull
+request with `origin/main` under minor-release semver rules.
 
 ## Projects using CheetahString
 
