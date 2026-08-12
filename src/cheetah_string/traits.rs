@@ -5,8 +5,32 @@ use core::cmp::Ordering;
 use core::fmt::{self, Display};
 use core::hash::{Hash, Hasher};
 use core::ops::Add;
+use core::str;
 
+use super::repr::INLINE_CAPACITY;
 use super::CheetahString;
+
+#[inline]
+fn concatenate(left: &str, right: &str) -> CheetahString {
+    let len = left
+        .len()
+        .checked_add(right.len())
+        .expect("concatenated string length overflow");
+
+    if len <= INLINE_CAPACITY {
+        let mut bytes = [0; INLINE_CAPACITY];
+        bytes[..left.len()].copy_from_slice(left.as_bytes());
+        bytes[left.len()..len].copy_from_slice(right.as_bytes());
+        let value =
+            str::from_utf8(&bytes[..len]).expect("concatenating valid strings must preserve UTF-8");
+        return CheetahString::from_slice(value);
+    }
+
+    let mut value = String::with_capacity(len);
+    value.push_str(left);
+    value.push_str(right);
+    CheetahString::from_string(value)
+}
 
 impl PartialEq for CheetahString {
     #[inline]
@@ -147,10 +171,11 @@ impl Add<&str> for CheetahString {
     /// ```
     #[inline]
     fn add(self, rhs: &str) -> Self::Output {
-        let mut value = String::with_capacity(self.len() + rhs.len());
-        value.push_str(self.as_str());
-        value.push_str(rhs);
-        CheetahString::from_string(value)
+        if rhs.is_empty() {
+            return self;
+        }
+
+        concatenate(self.as_str(), rhs)
     }
 }
 
@@ -191,13 +216,14 @@ impl Add<String> for CheetahString {
     /// ```
     #[inline]
     fn add(self, rhs: String) -> Self::Output {
+        if rhs.is_empty() {
+            return self;
+        }
+
         if self.is_empty() {
             return CheetahString::from_string(rhs);
         }
 
-        let mut value = String::with_capacity(self.len() + rhs.len());
-        value.push_str(self.as_str());
-        value.push_str(&rhs);
-        CheetahString::from_string(value)
+        concatenate(self.as_str(), &rhs)
     }
 }

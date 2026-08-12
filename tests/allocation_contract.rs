@@ -2,6 +2,7 @@ use cheetah_string::CheetahString;
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::hint::black_box;
+use std::sync::Arc;
 
 struct CountingAllocator;
 
@@ -69,6 +70,94 @@ fn assert_clone_allocations(value: &CheetahString) {
     );
     assert_eq!(cloned.as_bytes().as_ptr(), pointer);
     assert_eq!(&cloned, value);
+}
+
+fn exact_string(len: usize) -> String {
+    let mut value = String::with_capacity(len);
+    value.extend(std::iter::repeat_n('x', len));
+    assert_eq!(value.len(), value.capacity());
+    value
+}
+
+fn spare_string(len: usize) -> String {
+    let mut value = String::with_capacity(len * 2);
+    value.extend(std::iter::repeat_n('x', len));
+    assert!(value.capacity() > value.len());
+    value
+}
+
+#[test]
+fn arc_str_char_and_short_concat_are_zero_allocation_fast_paths() {
+    let source: Arc<str> = Arc::from("a".repeat(1024));
+    let source_pointer = source.as_ptr();
+    let (count, bytes, shared) = measure(|| CheetahString::from(black_box(source)));
+    assert_eq!((count, bytes), (0, 0));
+    assert_eq!(shared.as_bytes().as_ptr(), source_pointer);
+
+    let short_source: Arc<str> = Arc::from("short");
+    let short_pointer = short_source.as_ptr();
+    let (count, bytes, short) = measure(|| CheetahString::from(black_box(short_source)));
+    assert_eq!((count, bytes), (0, 0));
+    assert_ne!(short.as_bytes().as_ptr(), short_pointer);
+
+    let (count, bytes, ()) = measure(|| {
+        for scalar in 0..=char::MAX as u32 {
+            if let Some(character) = char::from_u32(scalar) {
+                let value = CheetahString::from(black_box(character));
+                let mut encoded = [0; 4];
+                assert_eq!(value.as_str(), character.encode_utf8(&mut encoded));
+                black_box(value);
+            }
+        }
+    });
+    assert_eq!((count, bytes), (0, 0), "every Unicode scalar is inline");
+
+    let left = CheetahString::from("inline");
+    let (count, bytes, combined) = measure(|| black_box(left) + black_box("-value"));
+    assert_eq!((count, bytes), (0, 0));
+    assert_eq!(combined, "inline-value");
+
+    let left = CheetahString::from("inline");
+    let owned_right = String::from("-owned");
+    let (count, bytes, combined) = measure(|| black_box(left) + black_box(owned_right));
+    assert_eq!((count, bytes), (0, 0));
+    assert_eq!(combined, "inline-owned");
+}
+
+#[test]
+fn exact_and_spare_capacity_freeze_costs_are_explicit() {
+    let exact_input = exact_string(1024);
+    let (count, _, exact) = measure(|| CheetahString::from_string(exact_input));
+    assert_eq!(count, 1, "exact-capacity String freeze creates Arc backing");
+    assert_eq!(exact.len(), 1024);
+
+    let spare_input = spare_string(1024);
+    let (count, _, spare) = measure(|| CheetahString::from_string(spare_input));
+    assert_eq!(
+        count, 2,
+        "spare-capacity String freeze shrinks then creates Arc backing"
+    );
+    assert_eq!(spare.len(), 1024);
+
+    let mut exact_builder = cheetah_string::CheetahBuilder::with_capacity(1024);
+    exact_builder.push_str(&"x".repeat(1024));
+    assert_eq!(exact_builder.len(), exact_builder.capacity());
+    let (count, _, exact) = measure(|| exact_builder.finish());
+    assert_eq!(
+        count, 1,
+        "exact-capacity builder freeze creates Arc backing"
+    );
+    assert_eq!(exact.len(), 1024);
+
+    let mut spare_builder = cheetah_string::CheetahBuilder::with_capacity(2048);
+    spare_builder.push_str(&"x".repeat(1024));
+    assert!(spare_builder.capacity() > spare_builder.len());
+    let (count, _, spare) = measure(|| spare_builder.finish());
+    assert_eq!(
+        count, 2,
+        "spare-capacity builder freeze shrinks then creates Arc backing"
+    );
+    assert_eq!(spare.len(), 1024);
 }
 
 #[test]

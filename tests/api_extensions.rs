@@ -109,6 +109,24 @@ fn test_lines() {
 }
 
 #[test]
+fn lines_exposes_reverse_clone_and_fused_capabilities() {
+    fn assert_capabilities<'a, I>(_: &I)
+    where
+        I: DoubleEndedIterator<Item = &'a str> + Clone + core::iter::FusedIterator,
+    {
+    }
+
+    let value = CheetahString::from("first\nsecond\nthird");
+    let mut lines = value.lines();
+    assert_capabilities(&lines);
+
+    let cloned = lines.clone();
+    assert_eq!(lines.next_back(), Some("third"));
+    assert_eq!(lines.next(), Some("first"));
+    assert_eq!(cloned.collect::<Vec<_>>(), ["first", "second", "third"]);
+}
+
+#[test]
 fn test_chars() {
     let s = CheetahString::from("hello");
     let chars: Vec<char> = s.chars().collect();

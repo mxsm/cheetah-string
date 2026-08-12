@@ -159,6 +159,36 @@ fn test_from_arc_string() {
 }
 
 #[test]
+fn from_arc_str_long_reuses_payload_pointer() {
+    let source: Arc<str> = Arc::from("shared arc-str payload ".repeat(8));
+    let pointer = source.as_ptr();
+
+    let value = CheetahString::from_arc_str(source);
+
+    assert_eq!(value.as_bytes().as_ptr(), pointer);
+    assert!(value.len() > 23);
+}
+
+#[test]
+fn from_arc_str_trait_matches_named_constructor() {
+    let named = CheetahString::from_arc_str(Arc::<str>::from("named constructor payload"));
+    let converted = CheetahString::from(Arc::<str>::from("named constructor payload"));
+
+    assert_eq!(named, converted);
+}
+
+#[test]
+fn short_arc_str_canonicalizes_without_reusing_heap_payload() {
+    let source: Arc<str> = Arc::from("short");
+    let pointer = source.as_ptr();
+
+    let value = CheetahString::from_arc_str(source);
+
+    assert_eq!(value, "short");
+    assert_ne!(value.as_bytes().as_ptr(), pointer);
+}
+
+#[test]
 fn test_into_string_copies_frozen_arc_string_value() {
     let value = "a".repeat(64);
     let arc = Arc::new(value);

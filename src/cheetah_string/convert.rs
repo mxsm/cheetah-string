@@ -31,6 +31,13 @@ impl From<Arc<String>> for CheetahString {
     }
 }
 
+impl From<Arc<str>> for CheetahString {
+    #[inline]
+    fn from(s: Arc<str>) -> Self {
+        CheetahString::from_arc_str(s)
+    }
+}
+
 impl<'a> From<&'a str> for CheetahString {
     #[inline]
     fn from(s: &'a str) -> Self {
@@ -85,7 +92,7 @@ impl From<Cow<'_, String>> for CheetahString {
 }
 
 impl From<char> for CheetahString {
-    /// Allocates an owned [`CheetahString`] from a single character.
+    /// Creates an inline [`CheetahString`] from a single character.
     ///
     /// # Example
     /// ```rust
@@ -96,7 +103,8 @@ impl From<char> for CheetahString {
     /// ```
     #[inline]
     fn from(c: char) -> Self {
-        CheetahString::from_string(c.to_string())
+        let mut buffer = [0; 4];
+        CheetahString::from_slice(c.encode_utf8(&mut buffer))
     }
 }
 

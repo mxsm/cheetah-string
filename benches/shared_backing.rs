@@ -245,6 +245,26 @@ fn emit_allocation_evidence() {
     let (arc_string_clone_allocs, arc_string_clone_bytes, arc_string_clone) =
         allocation_delta(|| arc_string_exact.clone());
 
+    let (cheetah_borrowed_allocs, cheetah_borrowed_bytes, cheetah_borrowed) =
+        allocation_delta(|| CheetahString::from_slice(&long));
+    let cheetah_exact_input = exact_string(1024);
+    let (cheetah_exact_allocs, cheetah_exact_bytes, cheetah_exact) =
+        allocation_delta(|| CheetahString::from_string(cheetah_exact_input));
+    let cheetah_spare_input = spare_string(1024);
+    let (cheetah_spare_allocs, cheetah_spare_bytes, cheetah_spare) =
+        allocation_delta(|| CheetahString::from_string(cheetah_spare_input));
+    let shared_source: Arc<str> = Arc::from(long.as_str());
+    let shared_source_pointer = shared_source.as_ptr();
+    let (cheetah_arc_allocs, cheetah_arc_bytes, cheetah_arc) =
+        allocation_delta(|| CheetahString::from_arc_str(shared_source));
+    let (cheetah_clone_allocs, cheetah_clone_bytes, cheetah_clone) =
+        allocation_delta(|| cheetah_exact.clone());
+    let (cheetah_char_allocs, cheetah_char_bytes, cheetah_char) =
+        allocation_delta(|| CheetahString::from('🦀'));
+    let short_left = CheetahString::from("inline");
+    let (cheetah_concat_allocs, cheetah_concat_bytes, cheetah_concat) =
+        allocation_delta(|| short_left + "-value");
+
     let arc_str_rss_before = current_rss_bytes();
     let retained_arc_str = (0..10_000)
         .map(|index| ArcStrCandidate::owned(format!("RMQ_SYS_TRACE_TOPIC_{index:05}")))
@@ -259,7 +279,7 @@ fn emit_allocation_evidence() {
     let arc_string_rss_after = current_rss_bytes();
 
     let evidence = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "object_sizes": {
             "Inline|Arc<str>": size_of::<ArcStrCandidate>(),
             "Inline|Arc<String>": size_of::<ArcStringCandidate>(),
@@ -277,7 +297,19 @@ fn emit_allocation_evidence() {
                 "owned_exact": {"count": arc_string_exact_allocs, "bytes": arc_string_exact_bytes},
                 "owned_spare": {"count": arc_string_spare_allocs, "bytes": arc_string_spare_bytes},
                 "clone": {"count": arc_string_clone_allocs, "bytes": arc_string_clone_bytes}
+            },
+            "CheetahString": {
+                "borrowed": {"count": cheetah_borrowed_allocs, "bytes": cheetah_borrowed_bytes},
+                "owned_exact": {"count": cheetah_exact_allocs, "bytes": cheetah_exact_bytes},
+                "owned_spare": {"count": cheetah_spare_allocs, "bytes": cheetah_spare_bytes},
+                "from_arc_str": {"count": cheetah_arc_allocs, "bytes": cheetah_arc_bytes},
+                "clone": {"count": cheetah_clone_allocs, "bytes": cheetah_clone_bytes},
+                "char": {"count": cheetah_char_allocs, "bytes": cheetah_char_bytes},
+                "short_concat": {"count": cheetah_concat_allocs, "bytes": cheetah_concat_bytes}
             }
+        },
+        "invariants": {
+            "from_arc_str_pointer_reused": cheetah_arc.as_bytes().as_ptr() == shared_source_pointer
         },
         "rss": {
             "Arc<str>": {
@@ -305,6 +337,13 @@ fn emit_allocation_evidence() {
         arc_string_exact,
         arc_string_spare,
         arc_string_clone,
+        cheetah_borrowed,
+        cheetah_exact,
+        cheetah_spare,
+        cheetah_arc,
+        cheetah_clone,
+        cheetah_char,
+        cheetah_concat,
         retained_arc_string,
     ));
 }
@@ -322,6 +361,10 @@ fn bench_construction(c: &mut Criterion) {
     });
     group.bench_function("CheetahString/shared/borrowed", |b| {
         b.iter(|| black_box(CheetahString::from(black_box(borrowed.as_str()))))
+    });
+    let shared: Arc<str> = Arc::from(borrowed.as_str());
+    group.bench_function("CheetahString/shared/from_arc_str", |b| {
+        b.iter(|| CheetahString::from_arc_str(black_box(Arc::clone(&shared))))
     });
     group.bench_function("Arc<str>/owned_exact", |b| {
         b.iter_batched(
@@ -395,6 +438,21 @@ fn bench_construction(c: &mut Criterion) {
                 builder
             },
             |builder| CheetahString::from_string_shared(black_box(builder.into_string())),
+            BatchSize::SmallInput,
+        )
+    });
+    group.finish();
+}
+
+fn bench_inline_fast_paths(c: &mut Criterion) {
+    let mut group = c.benchmark_group("inline_fast_paths");
+    group.bench_function("char", |b| {
+        b.iter(|| black_box(CheetahString::from(black_box('🦀'))))
+    });
+    group.bench_function("short_concat", |b| {
+        b.iter_batched(
+            || CheetahString::from("inline"),
+            |left| black_box(left + black_box("-value")),
             BatchSize::SmallInput,
         )
     });
@@ -566,6 +624,7 @@ fn benchmarks(c: &mut Criterion) {
     emit_allocation_evidence();
     bench_construction(c);
     bench_clone(c);
+    bench_inline_fast_paths(c);
     bench_mq_workloads(c);
 }
 

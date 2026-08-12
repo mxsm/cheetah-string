@@ -65,6 +65,8 @@ class RepositoryContractTests(unittest.TestCase):
             "python -m unittest discover -s scripts/tests -v",
             "cargo audit -D warnings",
             "scripts/check-msrv-package.sh 1.95",
+            "cargo test --test allocation_contract --all-features -- --test-threads=1",
+            "python scripts/verify-allocation-evidence.py",
         ):
             self.assertIn(command, ci)
         for command in (
@@ -73,6 +75,11 @@ class RepositoryContractTests(unittest.TestCase):
             "cargo fuzz build",
         ):
             self.assertIn(command, safety)
+
+        performance = read(".github/workflows/performance.yml")
+        self.assertIn("cargo test --test allocation_contract --all-features -- --test-threads=1", performance)
+        self.assertIn("cargo bench --bench shared_backing -- __allocation_evidence_only__ --noplot", performance)
+        self.assertIn("python scripts/verify-allocation-evidence.py", performance)
 
     def test_retired_score_governance_is_not_shipped(self) -> None:
         retired = (
