@@ -29,17 +29,20 @@ pub struct CheetahFinder<'a> {
 }
 
 impl<'a> CheetahFinder<'a> {
+    /// Creates a reusable finder for `needle`.
     #[inline]
     pub fn new(needle: &'a str) -> Self {
         let finder = (needle.len() > 1).then(|| memchr::memmem::Finder::new(needle.as_bytes()));
         Self { needle, finder }
     }
 
+    /// Returns the needle used by this finder.
     #[inline]
     pub fn needle(&self) -> &'a str {
         self.needle
     }
 
+    /// Finds the first occurrence of the needle in `haystack`.
     #[inline]
     pub fn find_in<S>(&self, haystack: &S) -> Option<usize>
     where
@@ -60,6 +63,7 @@ impl<'a> CheetahFinder<'a> {
             .and_then(|finder| finder.find(haystack))
     }
 
+    /// Returns whether the needle occurs in `haystack`.
     #[inline]
     pub fn is_match<S>(&self, haystack: &S) -> bool
     where

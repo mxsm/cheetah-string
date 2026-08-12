@@ -67,11 +67,13 @@ pub struct CheetahBytes {
 }
 
 impl CheetahBytes {
+    /// Creates an empty byte value.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Creates a zero-copy value from a static byte slice.
     #[inline]
     pub fn from_static(bytes: &'static [u8]) -> Self {
         Self {
@@ -79,6 +81,7 @@ impl CheetahBytes {
         }
     }
 
+    /// Creates a byte value by consuming a vector.
     #[inline]
     pub fn from_vec(bytes: Vec<u8>) -> Self {
         Self {
@@ -86,26 +89,31 @@ impl CheetahBytes {
         }
     }
 
+    /// Creates a zero-copy value from `bytes::Bytes`.
     #[inline]
     pub fn from_bytes(bytes: ::bytes::Bytes) -> Self {
         Self { inner: bytes }
     }
 
+    /// Borrows the complete byte payload.
     #[inline]
     pub fn as_bytes(&self) -> &[u8] {
         self.inner.as_ref()
     }
 
+    /// Returns the payload length in bytes.
     #[inline]
     pub fn len(&self) -> usize {
         self.inner.len()
     }
 
+    /// Returns `true` when the payload is empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
+    /// Recovers the underlying `bytes::Bytes` value without copying.
     #[inline]
     pub fn into_bytes(self) -> ::bytes::Bytes {
         self.inner
@@ -115,6 +123,13 @@ impl CheetahBytes {
         since = "2.2.0",
         note = "use try_copy_to_cheetah_string for a borrowed copy, or CheetahString::try_copy_from_bytes(self.into_bytes()) to recover invalid input"
     )]
+    /// Validates UTF-8 and copies this value into a `CheetahString`.
+    ///
+    /// This compatibility method discards the original buffer on error.
+    ///
+    /// # Errors
+    ///
+    /// Returns the UTF-8 validation error when the payload is not valid text.
     #[inline]
     pub fn try_into_string(self) -> Result<CheetahString, Utf8Error> {
         CheetahString::try_copy_from_bytes(self.inner).map_err(|error| error.into_parts().1)

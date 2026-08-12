@@ -209,14 +209,14 @@ fn current_rss_bytes() -> Option<u64> {
 
 fn exact_string(len: usize) -> String {
     let mut value = String::with_capacity(len);
-    value.extend(std::iter::repeat('x').take(len));
+    value.extend(std::iter::repeat_n('x', len));
     debug_assert_eq!(value.len(), value.capacity());
     value
 }
 
 fn spare_string(len: usize) -> String {
     let mut value = String::with_capacity(len * 2);
-    value.extend(std::iter::repeat('x').take(len));
+    value.extend(std::iter::repeat_n('x', len));
     debug_assert!(value.capacity() > value.len());
     value
 }

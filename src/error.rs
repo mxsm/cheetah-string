@@ -1,17 +1,30 @@
 use core::fmt;
 use core::str::Utf8Error;
 
-/// Errors that can occur during CheetahString operations
+/// Errors that can occur during `CheetahString` operations.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Error {
-    /// UTF-8 validation failed
+    /// UTF-8 validation failed.
     Utf8Error(Utf8Error),
-    /// Index out of bounds
-    IndexOutOfBounds { index: usize, len: usize },
-    /// Invalid range where the start is greater than the end
-    InvalidRange { start: usize, end: usize },
-    /// Invalid character boundary
-    InvalidCharBoundary { index: usize },
+    /// An index was beyond the string length.
+    IndexOutOfBounds {
+        /// Requested byte index.
+        index: usize,
+        /// String length in bytes.
+        len: usize,
+    },
+    /// A range started after its end.
+    InvalidRange {
+        /// Requested inclusive start index.
+        start: usize,
+        /// Requested exclusive end index.
+        end: usize,
+    },
+    /// An index did not lie on a UTF-8 character boundary.
+    InvalidCharBoundary {
+        /// Requested byte index.
+        index: usize,
+    },
 }
 
 impl fmt::Display for Error {
@@ -47,5 +60,5 @@ impl From<Utf8Error> for Error {
     }
 }
 
-/// Result type for CheetahString operations
+/// Result type for `CheetahString` operations.
 pub type Result<T> = core::result::Result<T, Error>;

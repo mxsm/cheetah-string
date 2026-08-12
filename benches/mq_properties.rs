@@ -1,7 +1,6 @@
 use cheetah_string::CheetahString;
 use compact_str::CompactString;
 use criterion::{black_box, criterion_group, criterion_main, BatchSize, Criterion, Throughput};
-use smartstring::alias::String as SmartString;
 use std::collections::HashMap;
 
 fn properties() -> Vec<(&'static str, &'static str)> {
@@ -68,23 +67,6 @@ fn bench_property_build(c: &mut Criterion) {
         )
     });
 
-    group.bench_function("SmartString", |b| {
-        b.iter_batched(
-            || (),
-            |_| {
-                let mut map = HashMap::with_capacity(props.len());
-                for (key, value) in black_box(&props) {
-                    map.insert(
-                        black_box(SmartString::from(*key)),
-                        black_box(SmartString::from(*value)),
-                    );
-                }
-                black_box(map)
-            },
-            BatchSize::SmallInput,
-        )
-    });
-
     group.bench_function("CheetahString", |b| {
         b.iter_batched(
             || (),
@@ -115,10 +97,6 @@ fn bench_property_lookup(c: &mut Criterion) {
         .iter()
         .map(|(key, value)| (CompactString::from(*key), CompactString::from(*value)))
         .collect();
-    let smart_map: HashMap<SmartString, SmartString> = props
-        .iter()
-        .map(|(key, value)| (SmartString::from(*key), SmartString::from(*value)))
-        .collect();
     let cheetah_map: HashMap<CheetahString, CheetahString> = props
         .iter()
         .map(|(key, value)| (CheetahString::from(*key), CheetahString::from(*value)))
@@ -141,14 +119,6 @@ fn bench_property_lookup(c: &mut Criterion) {
             black_box(black_box(&compact_map).get(black_box("TAGS")));
             black_box(black_box(&compact_map).get(black_box("PGROUP")));
             black_box(black_box(&compact_map).get(black_box("MISSING")))
-        })
-    });
-    group.bench_function("SmartString", |b| {
-        b.iter(|| {
-            black_box(black_box(&smart_map).get(black_box("UNIQ_KEY")));
-            black_box(black_box(&smart_map).get(black_box("TAGS")));
-            black_box(black_box(&smart_map).get(black_box("PGROUP")));
-            black_box(black_box(&smart_map).get(black_box("MISSING")))
         })
     });
     group.bench_function("CheetahString", |b| {

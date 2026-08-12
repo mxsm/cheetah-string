@@ -3,7 +3,6 @@ use compact_str::CompactString;
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
 };
-use smartstring::alias::String as SmartString;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -62,20 +61,6 @@ fn bench_topic_insert(c: &mut Criterion) {
         )
     });
 
-    group.bench_function("SmartString", |b| {
-        b.iter_batched(
-            || (),
-            |_| {
-                let mut map = HashMap::with_capacity(TOPIC_COUNT);
-                for (idx, topic) in black_box(&topics).iter().enumerate() {
-                    map.insert(black_box(SmartString::from(topic.as_str())), idx);
-                }
-                black_box(map)
-            },
-            BatchSize::LargeInput,
-        )
-    });
-
     group.bench_function("CheetahString", |b| {
         b.iter_batched(
             || (),
@@ -110,11 +95,6 @@ fn bench_topic_lookup(c: &mut Criterion) {
         .enumerate()
         .map(|(idx, topic)| (CompactString::from(topic.as_str()), idx))
         .collect();
-    let smart_map: HashMap<SmartString, usize> = topics
-        .iter()
-        .enumerate()
-        .map(|(idx, topic)| (SmartString::from(topic.as_str()), idx))
-        .collect();
     let cheetah_map: HashMap<CheetahString, usize> = topics
         .iter()
         .enumerate()
@@ -144,11 +124,6 @@ fn bench_topic_lookup(c: &mut Criterion) {
             BenchmarkId::new("CompactString", needle),
             needle,
             |b, needle| b.iter(|| black_box(compact_map.get(black_box(needle)))),
-        );
-        group.bench_with_input(
-            BenchmarkId::new("SmartString", needle),
-            needle,
-            |b, needle| b.iter(|| black_box(smart_map.get(black_box(needle)))),
         );
         group.bench_with_input(
             BenchmarkId::new("CheetahString", needle),

@@ -11,6 +11,16 @@
   compatibility, but `packed::PackedCheetahString` is no longer available.
 - Reordered release automation so all validation and candidate digest checks
   complete before a tag is created or a package is published.
+- Made every internal unchecked UTF-8 conversion an explicit unsafe boundary
+  and added Miri coverage for the stable representation.
+
+### Toolchain and verification
+
+- Raised the minimum supported Rust version from 1.75 to 1.95.
+- Added reproducible MSRV, rustdoc, dependency-audit, repository-contract,
+  Miri, and fuzz-build gates.
+- Removed the unmaintained `smartstring` benchmark dependency and retired the
+  stale score-verification scripts whose evidence manifest was not shipped.
 
 ### Migration
 

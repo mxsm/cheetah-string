@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["fast", "fast-string", "bytes", "rust", "rocketmq-rust"]
 categories = ["network-programming"]
 readme = "README.md"
-rust-version = "1.75.0"
+rust-version = "1.95"
 description = """
 An immutable, clone-cheap UTF-8 string with explicit construction and byte interoperability
 """
@@ -38,7 +38,7 @@ bytes = ["dep:bytes"]
 # Deprecated compatibility no-op. The unsound packed v1 API was retired in 3.1.
 experimental-packed = []
 experimental-simd = []
-# Deprecated v2 compatibility alias retained for the v3 alpha migration window.
+# Deprecated v2 compatibility alias retained for the 3.x migration window.
 # Prefer `experimental-simd`.
 simd = ["experimental-simd"]
 
@@ -46,7 +46,6 @@ simd = ["experimental-simd"]
 compact_str = "0.8"
 criterion = { version = "0.5", features = ["html_reports"] }
 serde_json = "1.0"
-smartstring = "1.0"
 
 
 [[bench]]
