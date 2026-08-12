@@ -17,8 +17,8 @@ SPEC.loader.exec_module(VERIFIER)
 
 def valid_evidence() -> dict:
     return {
-        "schema_version": 2,
-        "object_sizes": {"CheetahString": 32},
+        "schema_version": 3,
+        "object_sizes": {"CheetahString": 24},
         "allocations": {
             "CheetahString": {
                 "borrowed": {"count": 1, "bytes": 1040},
@@ -31,6 +31,15 @@ def valid_evidence() -> dict:
             }
         },
         "invariants": {"from_arc_str_pointer_reused": True},
+        "downstream_slots": {
+            "items": 10_000,
+            "vector_bytes": 240_000,
+            "string_vector_bytes": 240_000,
+            "map_entry_payload_bytes": 320_000,
+            "string_map_entry_payload_bytes": 320_000,
+            "previous_32_byte_vector_bytes": 320_000,
+            "vector_bytes_saved_vs_previous": 80_000,
+        },
     }
 
 
@@ -55,6 +64,13 @@ class AllocationEvidenceTests(unittest.TestCase):
                     evidence["invariants"]["from_arc_str_pointer_reused"] = value
                 with self.assertRaises(VERIFIER.EvidenceError):
                     VERIFIER.validate_evidence(evidence)
+
+    def test_downstream_slot_regression_is_rejected(self) -> None:
+        evidence = valid_evidence()
+        evidence["downstream_slots"]["vector_bytes"] = 320_000
+
+        with self.assertRaisesRegex(VERIFIER.EvidenceError, "vector_bytes"):
+            VERIFIER.validate_evidence(evidence)
 
     def test_log_parser_requires_one_evidence_record(self) -> None:
         record = json.dumps(valid_evidence(), separators=(",", ":"))

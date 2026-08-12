@@ -94,7 +94,7 @@ $benchmarkIds = @(
 [ordered]@{
     schema_version = 1
     capture_schema_version = "cheetah-string-capture-v3"
-    benchmark_schema_version = "cheetah-string-bench-v2"
+    benchmark_schema_version = "cheetah-string-bench-v3"
     criterion_schema_version = "criterion-0.5"
     crate = "cheetah-string"
     git_sha = $gitSha
@@ -154,7 +154,7 @@ Invoke-CargoCapture "allocation-contract.txt" @(
 )
 Assert-TestExecuted "allocation-contract.txt"
 [ordered]@{
-    schema_version = 2
+    schema_version = 3
     layout_contract = "passed"
     allocation_contract = "passed"
     clone_allocations_max = 0
@@ -163,6 +163,9 @@ Assert-TestExecuted "allocation-contract.txt"
     inline_concat_allocations_max = 0
     owned_exact_freeze_allocations_max = 1
     owned_spare_freeze_allocations_max = 2
+    cheetah_string_size_64 = 24
+    option_cheetah_string_size_64 = 24
+    vector_slots_per_10000_bytes = 240000
     source = "tests/allocation_contract.rs"
 } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 -LiteralPath (Join-Path $ResultDir "contracts.json")
 Invoke-CargoCapture "layout-bench.txt" (@(

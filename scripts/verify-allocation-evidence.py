@@ -59,12 +59,12 @@ def require_allocation(
 
 
 def validate_evidence(evidence: dict[str, Any]) -> None:
-    if evidence.get("schema_version") != 2:
-        raise EvidenceError("schema_version must be 2")
+    if evidence.get("schema_version") != 3:
+        raise EvidenceError("schema_version must be 3")
 
     sizes = require_mapping(evidence.get("object_sizes"), "object_sizes")
-    if sizes.get("CheetahString") != 32:
-        raise EvidenceError("object_sizes.CheetahString must remain 32 on the 64-bit gate runner")
+    if sizes.get("CheetahString") != 24:
+        raise EvidenceError("object_sizes.CheetahString must remain 24 on the 64-bit gate runner")
 
     allocation_groups = require_mapping(evidence.get("allocations"), "allocations")
     allocations = require_mapping(allocation_groups.get("CheetahString"), "allocations.CheetahString")
@@ -77,6 +77,20 @@ def validate_evidence(evidence: dict[str, Any]) -> None:
     invariants = require_mapping(evidence.get("invariants"), "invariants")
     if invariants.get("from_arc_str_pointer_reused") is not True:
         raise EvidenceError("invariants.from_arc_str_pointer_reused must be true")
+
+    slots = require_mapping(evidence.get("downstream_slots"), "downstream_slots")
+    expected_slots = {
+        "items": 10_000,
+        "vector_bytes": 240_000,
+        "string_vector_bytes": 240_000,
+        "map_entry_payload_bytes": 320_000,
+        "string_map_entry_payload_bytes": 320_000,
+        "previous_32_byte_vector_bytes": 320_000,
+        "vector_bytes_saved_vs_previous": 80_000,
+    }
+    for name, expected in expected_slots.items():
+        if slots.get(name) != expected:
+            raise EvidenceError(f"downstream_slots.{name} must be {expected}")
 
 
 def main() -> int:

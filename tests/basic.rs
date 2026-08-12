@@ -189,6 +189,25 @@ fn short_arc_str_canonicalizes_without_reusing_heap_payload() {
 }
 
 #[test]
+fn option_round_trips_every_storage_mode_in_the_compact_layout() {
+    let mut empty: Option<CheetahString> = None;
+    assert!(empty.take().is_none());
+
+    let mut inline = Some(CheetahString::from("inline"));
+    assert_eq!(inline.take().as_deref(), Some("inline"));
+
+    let static_text = "static-value";
+    let mut static_value = Some(CheetahString::from_static_str(static_text));
+    assert_eq!(static_value.take().as_deref(), Some(static_text));
+
+    let source: Arc<str> = Arc::from("shared option payload ".repeat(8));
+    let pointer = source.as_ptr();
+    let mut shared = Some(CheetahString::from(source));
+    let value = shared.take().expect("shared option must contain a value");
+    assert_eq!(value.as_bytes().as_ptr(), pointer);
+}
+
+#[test]
 fn test_into_string_copies_frozen_arc_string_value() {
     let value = "a".repeat(64);
     let arc = Arc::new(value);

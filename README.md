@@ -23,6 +23,13 @@ architecture.
 | Long borrowed text or exact-capacity `String` | Shared | 1 | 0 |
 | Long spare-capacity `String` / builder | Shared | 2: shrink/reallocate, then Arc backing | 0 |
 
+On supported 32-bit and 64-bit targets, both `CheetahString` and
+`Option<CheetahString>` occupy 24 bytes. A 10,000-element vector therefore uses
+240,000 bytes of element slots instead of the previous 320,000-byte contract.
+This is achieved with safe Rust enum niches; string pointers are never converted
+to integers. See [Stable layout](LAYOUT.md) for the exact representation and
+portability gate.
+
 The representation has no mutable `Owned(String)` state. Construction history
 therefore cannot change clone complexity. Use:
 
@@ -192,7 +199,8 @@ Hosted-runner and local benchmark results are diagnostic; they do not
 independently establish a release-grade performance pass. The versioned
 allocation and layout tests are the deterministic performance contracts.
 See [Performance contracts](PERFORMANCE.md) for the exact enforced budgets and
-the distinction between deterministic gates and diagnostic timing results.
+the distinction between deterministic gates and diagnostic timing results, and
+[Stable layout](LAYOUT.md) for the provenance-preserving 24-byte representation.
 
 ## Safety and portability
 

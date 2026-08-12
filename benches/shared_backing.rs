@@ -279,7 +279,7 @@ fn emit_allocation_evidence() {
     let arc_string_rss_after = current_rss_bytes();
 
     let evidence = json!({
-        "schema_version": 2,
+        "schema_version": 3,
         "object_sizes": {
             "Inline|Arc<str>": size_of::<ArcStrCandidate>(),
             "Inline|Arc<String>": size_of::<ArcStringCandidate>(),
@@ -310,6 +310,15 @@ fn emit_allocation_evidence() {
         },
         "invariants": {
             "from_arc_str_pointer_reused": cheetah_arc.as_bytes().as_ptr() == shared_source_pointer
+        },
+        "downstream_slots": {
+            "items": 10_000,
+            "vector_bytes": size_of::<CheetahString>() * 10_000,
+            "string_vector_bytes": size_of::<String>() * 10_000,
+            "map_entry_payload_bytes": size_of::<(CheetahString, u64)>() * 10_000,
+            "string_map_entry_payload_bytes": size_of::<(String, u64)>() * 10_000,
+            "previous_32_byte_vector_bytes": 32 * 10_000,
+            "vector_bytes_saved_vs_previous": (32 - size_of::<CheetahString>()) * 10_000
         },
         "rss": {
             "Arc<str>": {
