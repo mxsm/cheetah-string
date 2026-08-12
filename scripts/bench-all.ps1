@@ -93,8 +93,8 @@ $benchmarkIds = @(
 
 [ordered]@{
     schema_version = 1
-    capture_schema_version = "cheetah-string-capture-v2"
-    benchmark_schema_version = "cheetah-string-bench-v1"
+    capture_schema_version = "cheetah-string-capture-v3"
+    benchmark_schema_version = "cheetah-string-bench-v2"
     criterion_schema_version = "criterion-0.5"
     crate = "cheetah-string"
     git_sha = $gitSha
@@ -154,10 +154,15 @@ Invoke-CargoCapture "allocation-contract.txt" @(
 )
 Assert-TestExecuted "allocation-contract.txt"
 [ordered]@{
-    schema_version = 1
+    schema_version = 2
     layout_contract = "passed"
     allocation_contract = "passed"
     clone_allocations_max = 0
+    arc_str_adoption_allocations_max = 0
+    char_allocations_max = 0
+    inline_concat_allocations_max = 0
+    owned_exact_freeze_allocations_max = 1
+    owned_spare_freeze_allocations_max = 2
     source = "tests/allocation_contract.rs"
 } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 -LiteralPath (Join-Path $ResultDir "contracts.json")
 Invoke-CargoCapture "layout-bench.txt" (@(
@@ -187,6 +192,10 @@ Invoke-CargoCapture "simd.txt" (@(
 Invoke-CargoCapture "shared-backing.txt" (@(
     "bench", "--bench", "shared_backing", "--"
 ) + $criterionArguments)
+& python (Join-Path $PSScriptRoot "verify-allocation-evidence.py") (Join-Path $ResultDir "shared-backing.txt")
+if ($LASTEXITCODE -ne 0) {
+    throw "shared-backing allocation evidence verification failed"
+}
 
 if (-not (Test-Path -LiteralPath $CriterionSource)) {
     throw "Criterion result directory is missing: $CriterionSource"

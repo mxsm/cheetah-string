@@ -206,10 +206,28 @@ impl CheetahString {
                 inner: InnerString::Inline(inline),
             }
         } else {
-            // Use Arc<str> for long strings to avoid double allocation
+            // Arc<str> is the final backing. Converting a String with spare
+            // capacity can require a shrink/reallocation before the Arc copy.
             let arc_str: Arc<str> = s.into_boxed_str().into();
             CheetahString {
                 inner: InnerString::Shared(arc_str),
+            }
+        }
+    }
+
+    /// Creates a value from an owned `Arc<str>`.
+    ///
+    /// Values up to 23 bytes are copied into canonical inline storage. Longer
+    /// values reuse the `Arc<str>` payload without allocation or copying.
+    #[inline]
+    pub fn from_arc_str(s: Arc<str>) -> Self {
+        if let Some(inline) = InlineStr::from_str(&s) {
+            CheetahString {
+                inner: InnerString::Inline(inline),
+            }
+        } else {
+            CheetahString {
+                inner: InnerString::Shared(s),
             }
         }
     }

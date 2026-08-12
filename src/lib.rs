@@ -6,8 +6,8 @@
 //!
 //! [`CheetahString`] has one constructor-independent value contract:
 //!
-//! - values up to 23 bytes are stored inline;
-//! - static values borrow their `&'static str`;
+//! - explicit static values borrow their `&'static str`;
+//! - other values up to 23 bytes are stored inline;
 //! - other long values use a shared `Arc<str>` backing.
 //!
 //! Long clones are bounded O(1) and allocate zero times. Append-heavy
@@ -15,7 +15,8 @@
 //! [`CheetahBuilder::finish`] to freeze the value or
 //! [`CheetahBuilder::into_string`] when mutation or spare capacity must
 //! continue. `from_string` freezes its input and does not retain a mutable
-//! `String` representation.
+//! `String` representation. Long `Arc<str>` inputs can be adopted without
+//! allocation through [`CheetahString::from_arc_str`].
 //!
 //! The crate supports `no_std + alloc`. Optional `serde` integration preserves
 //! the text contract, while the `bytes` feature exposes `CheetahBytes` for

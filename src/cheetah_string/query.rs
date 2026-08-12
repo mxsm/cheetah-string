@@ -284,6 +284,9 @@ impl CheetahString {
 
     /// Returns an iterator over the lines of the string.
     ///
+    /// The opaque iterator exposes reverse iteration, cloning, and fused
+    /// iteration because those capabilities are guaranteed by `str::Lines`.
+    ///
     /// # Examples
     ///
     /// ```
@@ -294,7 +297,9 @@ impl CheetahString {
     /// assert_eq!(lines, vec!["line1", "line2", "line3"]);
     /// ```
     #[inline]
-    pub fn lines(&self) -> impl Iterator<Item = &str> {
+    pub fn lines(
+        &self,
+    ) -> impl DoubleEndedIterator<Item = &str> + Clone + core::iter::FusedIterator {
         self.as_str().lines()
     }
 

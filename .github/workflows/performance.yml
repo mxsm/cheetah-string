@@ -1,0 +1,50 @@
+name: Performance contracts
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "41 5 * * 2"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  deterministic-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up stable Rust
+        uses: dtolnay/rust-toolchain@4360b52568e2003a75bf9bc1d59f33a8e3fc893c
+        with:
+          toolchain: stable
+
+      - name: Verify allocation contracts
+        run: cargo test --test allocation_contract --all-features -- --test-threads=1
+
+      - name: Verify layout contracts
+        run: cargo test --test layout_snapshot --all-features -- --nocapture
+
+      - name: Capture shared-backing evidence
+        shell: bash
+        run: |
+          cargo bench --bench shared_backing -- __allocation_evidence_only__ --noplot 2>&1 |
+            tee target/allocation-evidence.log
+
+      - name: Verify shared-backing evidence
+        run: python scripts/verify-allocation-evidence.py target/allocation-evidence.log
+
+      - name: Upload allocation evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: allocation-evidence
+          path: target/allocation-evidence.log
+          if-no-files-found: error
+          retention-days: 14

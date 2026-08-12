@@ -71,6 +71,12 @@ jobs:
       - name: Test no-default feature matrix
         run: cargo test --no-default-features --features serde,bytes,simd
 
+      - name: Verify allocation contracts
+        run: cargo test --test allocation_contract --all-features -- --test-threads=1
+
+      - name: Verify layout contracts
+        run: cargo test --test layout_snapshot --all-features -- --nocapture
+
       - name: Check packaged MSRV consumers
         run: bash scripts/check-msrv-package.sh 1.95
 

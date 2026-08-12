@@ -22,6 +22,17 @@
 - Removed the unmaintained `smartstring` benchmark dependency and retired the
   stale score-verification scripts whose evidence manifest was not shipped.
 
+### Performance and API
+
+- Added `CheetahString::from_arc_str` and `From<Arc<str>>`; long values preserve
+  the input payload pointer with zero allocation, while short values remain
+  canonical inline strings.
+- Removed temporary heap allocation from `From<char>` and inline-sized
+  concatenation.
+- Exposed the reverse, clone, and fused iterator guarantees of `lines()`.
+- Added fail-closed allocation evidence for exact/spare freezes, shared input,
+  cloning, characters, and short concatenation.
+
 ### Migration
 
 - Replace read-only `PackedCheetahString` values with `CheetahString`.

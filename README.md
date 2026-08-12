@@ -15,11 +15,13 @@ architecture.
 
 ## Design contract
 
-| Storage | Condition | Construction allocation | Clone allocation |
+| Input path | Storage | Allocation events during conversion | Clone allocation |
 |---|---|---:|---:|
-| Inline | UTF-8 length ≤ 23 bytes | 0 | 0 |
-| Static | `&'static str` | 0 | 0 |
-| Shared | Other long text | 1 live backing allocation | 0 |
+| Explicit `from_static_str` | Static | 0 | 0 |
+| Other UTF-8 input ≤ 23 bytes | Inline | 0 | 0 |
+| Long `Arc<str>` | Shared | 0; payload pointer is retained | 0 |
+| Long borrowed text or exact-capacity `String` | Shared | 1 | 0 |
+| Long spare-capacity `String` / builder | Shared | 2: shrink/reallocate, then Arc backing | 0 |
 
 The representation has no mutable `Owned(String)` state. Construction history
 therefore cannot change clone complexity. Use:
@@ -62,12 +64,16 @@ use cheetah_string::{CheetahBuilder, CheetahString};
 let inline = CheetahString::from("orders");
 let static_value = CheetahString::from_static_str("system-topic");
 let shared = CheetahString::from_string("long-dynamic-value-".repeat(8));
+let adopted = CheetahString::from(std::sync::Arc::<str>::from(
+    "ownership-preserving-shared-value",
+));
 let cloned = shared.clone();
 
 assert_eq!(inline, "orders");
 assert_eq!(static_value, "system-topic");
 assert_eq!(shared, cloned);
 assert_eq!(shared.as_bytes().as_ptr(), cloned.as_bytes().as_ptr());
+assert_eq!(adopted, "ownership-preserving-shared-value");
 
 let mut builder = CheetahBuilder::with_capacity(64);
 builder.push_str("orders");
@@ -106,6 +112,9 @@ assert_eq!(forward, ["a", "b", "c"]);
 let csv = CheetahString::from("a,b,c");
 let reverse: Vec<_> = csv.split_char(',').rev().collect();
 assert_eq!(reverse, ["c", "b", "a"]);
+
+let reverse_lines: Vec<_> = CheetahString::from("a\nb\nc").lines().rev().collect();
+assert_eq!(reverse_lines, ["c", "b", "a"]);
 ```
 
 `split_str` is intentionally forward-only. Unsupported reverse iteration fails
@@ -170,6 +179,9 @@ dedicated fixed CPU with two reversed base/head rounds.
 ```bash
 cargo test --test layout_snapshot --all-features
 cargo test --test allocation_contract --all-features -- --test-threads=1
+cargo bench --bench shared_backing -- __allocation_evidence_only__ --noplot \
+  2>&1 | tee target/allocation-evidence.log
+python scripts/verify-allocation-evidence.py target/allocation-evidence.log
 cargo bench --bench comprehensive
 cargo bench --bench mq_properties
 cargo bench --bench mq_remoting_header
@@ -179,6 +191,8 @@ cargo bench --bench mq_topic
 Hosted-runner and local benchmark results are diagnostic; they do not
 independently establish a release-grade performance pass. The versioned
 allocation and layout tests are the deterministic performance contracts.
+See [Performance contracts](PERFORMANCE.md) for the exact enforced budgets and
+the distinction between deterministic gates and diagnostic timing results.
 
 ## Safety and portability
 

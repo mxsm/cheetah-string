@@ -8,7 +8,7 @@ MODE=${4:-full}
 TOOLCHAIN=${CARGO_TOOLCHAIN:-}
 RESULT_DIR="bench-results/${VERSION}"
 CRITERION_DESTINATION="$RESULT_DIR/criterion"
-CAPTURE_SCHEMA=cheetah-string-capture-v2
+CAPTURE_SCHEMA=cheetah-string-capture-v3
 TARGET_ROOT=${CARGO_TARGET_DIR:-target}
 CRITERION_SOURCE="$TARGET_ROOT/criterion"
 
@@ -96,7 +96,7 @@ json_escape() {
   printf '{\n'
   printf '  "schema_version": 1,\n'
   printf '  "capture_schema_version": "%s",\n' "$CAPTURE_SCHEMA"
-  printf '  "benchmark_schema_version": "cheetah-string-bench-v1",\n'
+  printf '  "benchmark_schema_version": "cheetah-string-bench-v2",\n'
   printf '  "criterion_schema_version": "criterion-0.5",\n'
   printf '  "crate": "cheetah-string",\n'
   printf '  "git_sha": "%s",\n' "$(json_escape "$GIT_SHA")"
@@ -153,10 +153,15 @@ run_cargo allocation-contract.txt test --test allocation_contract --all-features
 require_test_passed allocation-contract.txt
 cat > "$RESULT_DIR/contracts.json" <<'JSON'
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "layout_contract": "passed",
   "allocation_contract": "passed",
   "clone_allocations_max": 0,
+  "arc_str_adoption_allocations_max": 0,
+  "char_allocations_max": 0,
+  "inline_concat_allocations_max": 0,
+  "owned_exact_freeze_allocations_max": 1,
+  "owned_spare_freeze_allocations_max": 2,
   "source": "tests/allocation_contract.rs"
 }
 JSON
@@ -179,6 +184,7 @@ run_cargo pattern.txt bench --bench pattern -- $CRITERION_ARGS
 run_cargo simd.txt bench --bench simd --features experimental-simd -- $CRITERION_ARGS
 # shellcheck disable=SC2086
 run_cargo shared-backing.txt bench --bench shared_backing -- $CRITERION_ARGS
+python3 "$SCRIPT_DIR/verify-allocation-evidence.py" "$RESULT_DIR/shared-backing.txt"
 
 [ -d "$CRITERION_SOURCE" ] || {
   echo "Criterion result directory is missing: $CRITERION_SOURCE" >&2
