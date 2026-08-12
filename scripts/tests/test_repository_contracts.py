@@ -7,6 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOWS = ROOT / ".github" / "workflows"
+
+
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
@@ -48,6 +50,18 @@ class RepositoryContractTests(unittest.TestCase):
         ):
             self.assertRegex(source, rf"unsafe fn {helper}\b")
 
+    def test_compact_layout_does_not_integerize_or_reconstruct_pointers(self) -> None:
+        source = read("src/inline.rs")
+        self.assertIn("enum InlineLength", source)
+        self.assertEqual(source.count("unsafe {"), 2)
+        for forbidden in (
+            "from_raw_parts",
+            "transmute",
+            "expose_provenance",
+            "with_exposed_provenance",
+        ):
+            self.assertNotIn(forbidden, source)
+
     def test_workflow_actions_are_immutable(self) -> None:
         for workflow in sorted(WORKFLOWS.glob("*.y*ml")):
             text = workflow.read_text(encoding="utf-8")
@@ -66,6 +80,7 @@ class RepositoryContractTests(unittest.TestCase):
             "cargo audit -D warnings",
             "scripts/check-msrv-package.sh 1.95",
             "cargo test --test allocation_contract --all-features -- --test-threads=1",
+            "cargo test --target i686-pc-windows-msvc --test layout_snapshot --all-features -- --nocapture",
             "python scripts/verify-allocation-evidence.py",
         ):
             self.assertIn(command, ci)

@@ -32,6 +32,10 @@
 - Exposed the reverse, clone, and fused iterator guarantees of `lines()`.
 - Added fail-closed allocation evidence for exact/spare freezes, shared input,
   cloning, characters, and short concatenation.
+- Reduced `CheetahString` and `Option<CheetahString>` from 32 to 24 bytes on
+  64-bit targets while preserving the 23-byte inline capacity. The stable
+  representation uses constrained Rust enum discriminants as layout niches and
+  does not encode pointers as integers.
 
 ### Migration
 

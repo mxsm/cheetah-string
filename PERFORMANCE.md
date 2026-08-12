@@ -18,7 +18,10 @@ noise cannot establish a portable latency threshold.
 | Long borrowed construction | 1 | One live `Arc<str>` backing |
 | Exact-capacity owned/builder freeze | 1 | One live `Arc<str>` backing |
 | Spare-capacity owned/builder freeze | 2 | Shrink/reallocation plus `Arc<str>` backing |
-| `CheetahString` object size | N/A | 32 bytes on supported 64-bit targets |
+| `CheetahString` object size | N/A | 24 bytes on supported 32-bit and 64-bit targets |
+| `Option<CheetahString>` object size | N/A | 24 bytes on supported 32-bit and 64-bit targets |
+| 10,000 vector element slots | N/A | 240,000 bytes; 80,000 below the prior contract |
+| 10,000 `(CheetahString, u64)` payloads | N/A | 320,000 bytes; equal to `(String, u64)` |
 
 The allocation count includes allocation and reallocation events during the
 measured conversion. It is intentionally different from the number of live
@@ -41,9 +44,10 @@ cargo bench --bench shared_backing -- __allocation_evidence_only__ --noplot \
 python scripts/verify-allocation-evidence.py target/allocation-evidence.log
 ```
 
-The verifier requires one schema-v2 `SHARED_BACKING_EVIDENCE` record and fails
+The verifier requires one schema-v3 `SHARED_BACKING_EVIDENCE` record and fails
 closed when a required field is absent, an allocation count regresses, the
-64-bit layout changes, or long `Arc<str>` input does not retain its pointer.
+64-bit layout or downstream slot footprint changes, or long `Arc<str>` input
+does not retain its pointer.
 
 ## Timing policy
 

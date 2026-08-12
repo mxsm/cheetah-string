@@ -7,7 +7,9 @@ part of this model and is not exported by the crate.
 ## Core invariants
 
 - Every `CheetahString` is valid UTF-8 for its complete lifetime.
-- Inline length never exceeds the 23-byte inline buffer.
+- Inline length is represented by a private 0-through-23 enum and never exceeds
+  the 23-byte inline buffer. Its invalid discriminants are compiler layout
+  niches; they are never constructed as inline lengths.
 - Static storage contains a valid `&'static str`.
 - Shared storage is an owned `Arc<str>` and preserves pointer provenance.
 - `CheetahBytes` has byte semantics and does not imply UTF-8.
@@ -27,6 +29,12 @@ The private helpers whose names contain `validated` are themselves `unsafe fn`.
 Safe constructors perform UTF-8 validation before entering those helpers;
 public unchecked constructors forward their documented caller contract in an
 explicit unsafe block.
+
+The 24-byte representation does not add an unsafe boundary. `Static` remains a
+normal `&'static str`, `Shared` remains a normal `Arc<str>`, and the outer Rust
+enum uses the constrained inline-length discriminants as niches. No pointer is
+converted to an integer or reconstructed. Layout snapshots gate the compiler
+optimization separately from Miri's behavioral provenance checks.
 
 ## Verification
 

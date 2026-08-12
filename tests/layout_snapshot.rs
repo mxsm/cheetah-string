@@ -30,6 +30,8 @@ fn layout_snapshot() {
         layout_entry::<Option<&str>>("Option<&str>"),
         layout_entry::<std::sync::Arc<str>>("Arc<str>"),
         layout_entry::<Option<std::sync::Arc<str>>>("Option<Arc<str>>"),
+        layout_entry::<(CheetahString, u64)>("(CheetahString,u64)"),
+        layout_entry::<(String, u64)>("(String,u64)"),
     ];
 
     let snapshot = format!(
@@ -58,18 +60,21 @@ fn layout_snapshot() {
 
     #[cfg(target_pointer_width = "64")]
     {
-        assert_eq!(size_of::<CheetahString>(), 32);
-        assert_eq!(size_of::<Option<CheetahString>>(), 32);
+        assert_eq!(size_of::<CheetahString>(), 24);
+        assert_eq!(size_of::<Option<CheetahString>>(), 24);
         assert_eq!(align_of::<CheetahString>(), 8);
+        assert_eq!(size_of::<CheetahString>(), size_of::<String>());
+        assert_eq!(size_of::<(CheetahString, u64)>(), 32);
+        assert_eq!(
+            size_of::<(CheetahString, u64)>(),
+            size_of::<(String, u64)>()
+        );
     }
 
     #[cfg(target_pointer_width = "32")]
     {
-        // Measured on i686-pc-windows-msvc. InlineStr alone occupies 24 bytes,
-        // so the enum discriminant and 4-byte alignment produce a 28-byte
-        // representation on 32-bit targets.
-        assert_eq!(size_of::<CheetahString>(), 28);
-        assert_eq!(size_of::<Option<CheetahString>>(), 28);
+        assert_eq!(size_of::<CheetahString>(), 24);
+        assert_eq!(size_of::<Option<CheetahString>>(), 24);
         assert_eq!(align_of::<CheetahString>(), 4);
     }
 }

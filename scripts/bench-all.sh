@@ -96,7 +96,7 @@ json_escape() {
   printf '{\n'
   printf '  "schema_version": 1,\n'
   printf '  "capture_schema_version": "%s",\n' "$CAPTURE_SCHEMA"
-  printf '  "benchmark_schema_version": "cheetah-string-bench-v2",\n'
+  printf '  "benchmark_schema_version": "cheetah-string-bench-v3",\n'
   printf '  "criterion_schema_version": "criterion-0.5",\n'
   printf '  "crate": "cheetah-string",\n'
   printf '  "git_sha": "%s",\n' "$(json_escape "$GIT_SHA")"
@@ -153,7 +153,7 @@ run_cargo allocation-contract.txt test --test allocation_contract --all-features
 require_test_passed allocation-contract.txt
 cat > "$RESULT_DIR/contracts.json" <<'JSON'
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "layout_contract": "passed",
   "allocation_contract": "passed",
   "clone_allocations_max": 0,
@@ -162,6 +162,9 @@ cat > "$RESULT_DIR/contracts.json" <<'JSON'
   "inline_concat_allocations_max": 0,
   "owned_exact_freeze_allocations_max": 1,
   "owned_spare_freeze_allocations_max": 2,
+  "cheetah_string_size_64": 24,
+  "option_cheetah_string_size_64": 24,
+  "vector_slots_per_10000_bytes": 240000,
   "source": "tests/allocation_contract.rs"
 }
 JSON
