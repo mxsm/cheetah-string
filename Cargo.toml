@@ -14,6 +14,7 @@ description = """
 An immutable, clone-cheap UTF-8 string with explicit construction and byte interoperability
 """
 exclude = [
+    "docs/**",
     "bench-results/packed-evidence/**",
     "bench-results/usage-inventory/**",
     "bench-results/base/**",
