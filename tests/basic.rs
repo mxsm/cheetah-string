@@ -505,7 +505,11 @@ fn split_str_iterator_is_cloneable_and_fused() {
 fn spare_capacity_freeze_keeps_contents() {
     let mut owned = String::with_capacity(256);
     owned.push_str("a long value with plenty of spare capacity behind it");
-    let frozen = CheetahString::from_string(owned.clone());
-    assert_eq!(frozen, owned.as_str());
-    assert_eq!(frozen.len(), owned.len());
+    assert!(owned.capacity() > owned.len());
+    // `String::clone` drops spare capacity, so keep the clone as the
+    // expectation and freeze the original.
+    let expected = owned.clone();
+    let frozen = CheetahString::from_string(owned);
+    assert_eq!(frozen, expected.as_str());
+    assert_eq!(frozen.len(), expected.len());
 }
