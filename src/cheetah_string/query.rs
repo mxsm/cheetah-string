@@ -584,8 +584,14 @@ impl CheetahString {
     fn replace_matches(&self, from: &str, to: &str, limit: usize) -> CheetahString {
         let value = self.as_str();
         if from.is_empty() {
-            // An empty pattern matches at every character boundary.
-            return CheetahString::from_string(value.replacen(from, to, limit));
+            // An empty pattern matches at every character boundary, including
+            // the end of the text.
+            return self.replace_starts(0, to, limit, || {
+                value
+                    .char_indices()
+                    .map(|(index, _)| index)
+                    .chain(core::iter::once(value.len()))
+            });
         }
 
         if let [byte] = from.as_bytes() {

@@ -28,7 +28,9 @@
 - `concat`, `+`, `replace`, and `replacen` compute the exact result length
   and write it once: up to 23 bytes inline with no allocation, otherwise
   straight into one `Arc<str>` allocation instead of a `String` that is
-  frozen afterwards. A `replace` without a match reuses the value.
+  frozen afterwards. Empty patterns, which match at every character
+  boundary, take the same path. A `replace` without a match, or with a count
+  of zero, reuses the value.
 - `to_uppercase` and `to_lowercase` map ASCII input in place: inline
   results allocate nothing, long results copy once, and values that are
   already in the requested case are reused.

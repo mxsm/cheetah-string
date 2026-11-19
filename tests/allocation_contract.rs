@@ -290,6 +290,22 @@ fn exact_length_assembly_allocates_at_most_once() {
     );
     assert_eq!(same.as_bytes().as_ptr(), long_upper.as_bytes().as_ptr());
 
+    let (count, bytes, interleaved) = measure(|| black_box(&short_base).replace("", "|"));
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "empty-pattern replace with a short result stays inline"
+    );
+    assert_eq!(interleaved, "|a|.|b|.|c|.|d|");
+
+    let (count, bytes, untouched) = measure(|| black_box(&base).replacen("", "x", 0));
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "a zero-count replace reuses the value"
+    );
+    assert_eq!(untouched.as_bytes().as_ptr(), base.as_bytes().as_ptr());
+
     let unit = CheetahString::from("ab");
     let (count, bytes, repeated) = measure(|| black_box(&unit).repeat(5));
     assert_eq!((count, bytes), (0, 0), "short repeat stays inline");
