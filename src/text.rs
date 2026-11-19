@@ -270,7 +270,7 @@ impl Borrow<str> for CheetahText {
 impl PartialEq for CheetahText {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.as_bytes() == other.as_bytes()
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
@@ -303,14 +303,14 @@ macro_rules! impl_text_eq {
         impl PartialEq<$other> for CheetahText {
             #[inline]
             fn eq(&self, other: &$other) -> bool {
-                self.as_str() == AsRef::<str>::as_ref(other)
+                crate::compare::bytes_eq(self.as_bytes(), AsRef::<str>::as_ref(other).as_bytes())
             }
         }
 
         impl PartialEq<CheetahText> for $other {
             #[inline]
             fn eq(&self, other: &CheetahText) -> bool {
-                AsRef::<str>::as_ref(self) == other.as_str()
+                crate::compare::bytes_eq(AsRef::<str>::as_ref(self).as_bytes(), other.as_bytes())
             }
         }
     )*};

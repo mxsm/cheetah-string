@@ -32,11 +32,11 @@
 //!
 //! # Search and experimental SIMD
 //!
-//! Stable builds delegate equality, prefix, and suffix comparisons to the
-//! standard slice/`str` implementations so the compiler and standard library
-//! select the best portable strategy. The `experimental-simd` feature exposes
-//! an x86_64 SSE2 experiment for controlled benchmarking only. The deprecated
-//! `simd` feature remains a 3.x compatibility alias.
+//! Equality, prefix, and suffix comparisons of up to 64 bytes use
+//! overlapping fixed-size loads instead of a `memcmp` call; longer inputs use
+//! `memcmp`. The `experimental-simd` feature exposes an x86_64 SSE2
+//! experiment for controlled benchmarking only. The deprecated `simd` feature
+//! remains a 3.x compatibility alias.
 //!
 //! Substring search picks its backend by length: short needles on text that
 //! spans a 16-byte block use the standard library's SIMD `contains`;
@@ -80,6 +80,7 @@ extern crate alloc;
 
 mod builder;
 mod cheetah_string;
+mod compare;
 mod error;
 mod inline;
 mod search;

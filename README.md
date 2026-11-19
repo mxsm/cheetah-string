@@ -107,7 +107,8 @@ value.push_str("@group-a");
 
 ## Search and split
 
-Equality, prefix, and suffix checks use Rust's portable slice/`str` paths.
+Equality, prefix, and suffix checks compare up to 64 bytes with overlapping
+fixed-size loads instead of calling `memcmp`, and use `memcmp` beyond that.
 Substring search picks its backend by length: `contains` uses the standard
 library's SIMD search for 2- to 32-byte needles once the text spans a
 16-byte block; `find` and `rfind` use `memchr::memmem` on inline-sized
