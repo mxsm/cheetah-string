@@ -1,5 +1,5 @@
 use alloc::borrow::Cow;
-use alloc::string::{ParseError, String, ToString};
+use alloc::string::{ParseError, String};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::ops::Deref;
@@ -169,11 +169,22 @@ impl From<CheetahString> for String {
             } => inline.into_string(),
             CheetahString {
                 inner: InnerString::Static(s),
-            } => s.to_string(),
+            } => String::from(s),
             CheetahString {
                 inner: InnerString::Shared(s),
-            } => s.to_string(),
+            } => String::from(&*s),
         }
+    }
+}
+
+impl From<&CheetahString> for String {
+    /// Copies the text into a new `String` with exact capacity.
+    ///
+    /// Prefer this over `to_string()`, which goes through the `Display`
+    /// formatting machinery.
+    #[inline]
+    fn from(s: &CheetahString) -> Self {
+        String::from(s.as_str())
     }
 }
 

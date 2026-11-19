@@ -217,6 +217,39 @@ impl CheetahString {
         }
     }
 
+    /// Concatenates string slices into one value with a single copy.
+    ///
+    /// Results of up to 23 bytes are stored inline without allocating.
+    /// Longer results are written straight into one shared allocation, with no
+    /// intermediate `String`. This is the cheapest way to build composite keys
+    /// such as `topic@group`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the total length overflows `usize`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let key = CheetahString::concat(&["orders", "@", "group-a"]);
+    /// assert_eq!(key, "orders@group-a");
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn concat(parts: &[&str]) -> Self {
+        let len = parts
+            .iter()
+            .try_fold(0usize, |total, part| total.checked_add(part.len()))
+            .expect("concatenated string length overflow");
+        super::assemble::assemble(len, |writer| {
+            for part in parts {
+                writer.push_str(part);
+            }
+        })
+    }
+
     /// Creates a value from an owned `Arc<str>`.
     ///
     /// Values up to 23 bytes are copied into canonical inline storage. Longer

@@ -35,6 +35,13 @@ mod private {
         }
     }
 
+    impl Sealed for &super::super::CheetahString {
+        #[inline]
+        fn classify(&self) -> super::StrPatternKind<'_> {
+            super::StrPatternKind::Str(self.as_str())
+        }
+    }
+
     pub trait SplitSealed {}
     impl SplitSealed for char {}
     impl SplitSealed for &str {}
@@ -42,7 +49,8 @@ mod private {
 
 /// A sealed pattern accepted by text query methods.
 ///
-/// The supported pattern types are `char`, `&str`, and `&String`. External
+/// The supported pattern types are `char`, `&str`, `&String`, and
+/// `&CheetahString`. External
 /// implementations are intentionally rejected so the crate can preserve query
 /// semantics across compatible releases.
 ///
@@ -75,6 +83,7 @@ pub enum StrPatternImpl<'a> {
 impl StrPattern for char {}
 impl StrPattern for &str {}
 impl StrPattern for &String {}
+impl StrPattern for &super::CheetahString {}
 
 #[inline]
 pub(super) fn classify<P: StrPattern>(pattern: &P) -> StrPatternKind<'_> {

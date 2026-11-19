@@ -1,7 +1,10 @@
+use alloc::sync::Arc;
 use core::str;
 
 use super::pattern::{classify, SplitPattern, SplitStr, StrPattern, StrPatternKind};
+use super::repr::{InnerString, INLINE_CAPACITY};
 use super::CheetahString;
+use crate::inline::InlineStr;
 
 impl CheetahString {
     // Query methods - delegate to &str
@@ -21,6 +24,7 @@ impl CheetahString {
     /// assert!(!s.starts_with("world"));
     /// assert!(s.starts_with('h'));
     /// ```
+    #[must_use]
     #[inline]
     pub fn starts_with<P: StrPattern>(&self, pat: P) -> bool {
         match classify(&pat) {
@@ -49,6 +53,7 @@ impl CheetahString {
     /// assert!(s.starts_with_char('h'));
     /// assert!(!s.starts_with_char('w'));
     /// ```
+    #[must_use]
     #[inline]
     pub fn starts_with_char(&self, pat: char) -> bool {
         self.as_str().starts_with(pat)
@@ -69,6 +74,7 @@ impl CheetahString {
     /// assert!(!s.ends_with("hello"));
     /// assert!(s.ends_with('d'));
     /// ```
+    #[must_use]
     #[inline]
     pub fn ends_with<P: StrPattern>(&self, pat: P) -> bool {
         match classify(&pat) {
@@ -97,6 +103,7 @@ impl CheetahString {
     /// assert!(s.ends_with_char('d'));
     /// assert!(!s.ends_with_char('h'));
     /// ```
+    #[must_use]
     #[inline]
     pub fn ends_with_char(&self, pat: char) -> bool {
         self.as_str().ends_with(pat)
@@ -104,7 +111,8 @@ impl CheetahString {
 
     /// Returns `true` if the string contains the given pattern.
     ///
-    /// This method uses the `memchr`/`memmem` search backend.
+    /// Needles of 2 to 32 bytes on text long enough for a 16-byte block use the
+    /// standard library's SIMD search; other cases use `memchr`/`memmem`.
     ///
     /// # Examples
     ///
@@ -116,13 +124,12 @@ impl CheetahString {
     /// assert!(!s.contains("xyz"));
     /// assert!(s.contains('o'));
     /// ```
+    #[must_use]
     #[inline]
     pub fn contains<P: StrPattern>(&self, pat: P) -> bool {
         match classify(&pat) {
             StrPatternKind::Char(c) => self.as_str().contains(c),
-            StrPatternKind::Str(s) => {
-                crate::search::find_bytes(self.as_bytes(), s.as_bytes()).is_some()
-            }
+            StrPatternKind::Str(s) => crate::search::contains_str(self.as_str(), s),
         }
     }
 
@@ -137,6 +144,7 @@ impl CheetahString {
     /// assert!(s.contains_char('o'));
     /// assert!(!s.contains_char('x'));
     /// ```
+    #[must_use]
     #[inline]
     pub fn contains_char(&self, pat: char) -> bool {
         self.as_str().contains(pat)
@@ -144,7 +152,10 @@ impl CheetahString {
 
     /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
     ///
-    /// This method uses the `memchr`/`memmem` search backend.
+    /// Text of 24 to 127 bytes uses `str::find`; shorter and longer text uses
+    /// `memchr::memmem`. Use
+    /// [`CheetahString::find_char`] for a `char` pattern and
+    /// [`crate::CheetahFinder`] to search for the same needle repeatedly.
     ///
     /// # Examples
     ///
@@ -155,10 +166,10 @@ impl CheetahString {
     /// assert_eq!(s.find("world"), Some(6));
     /// assert_eq!(s.find("xyz"), None);
     /// ```
+    #[must_use]
     #[inline]
     pub fn find<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
-        let pat = pat.as_ref();
-        crate::search::find_bytes(self.as_bytes(), pat.as_bytes())
+        crate::search::find_str(self.as_str(), pat.as_ref())
     }
 
     /// Returns the byte index of the last occurrence of the pattern, or `None` if not found.
@@ -171,9 +182,43 @@ impl CheetahString {
     /// let s = CheetahString::from("hello hello");
     /// assert_eq!(s.rfind("hello"), Some(6));
     /// ```
+    #[must_use]
     #[inline]
     pub fn rfind<P: AsRef<str>>(&self, pat: P) -> Option<usize> {
-        crate::search::rfind_bytes(self.as_bytes(), pat.as_ref().as_bytes())
+        crate::search::rfind_str(self.as_str(), pat.as_ref())
+    }
+
+    /// Returns the byte index of the first occurrence of `pat`, or `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("orders@group-a");
+    /// assert_eq!(s.find_char('@'), Some(6));
+    /// assert_eq!(s.find_char('#'), None);
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn find_char(&self, pat: char) -> Option<usize> {
+        self.as_str().find(pat)
+    }
+
+    /// Returns the byte index of the last occurrence of `pat`, or `None`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use cheetah_string::CheetahString;
+    ///
+    /// let s = CheetahString::from("a.b.c");
+    /// assert_eq!(s.rfind_char('.'), Some(3));
+    /// ```
+    #[must_use]
+    #[inline]
+    pub fn rfind_char(&self, pat: char) -> Option<usize> {
+        self.as_str().rfind(pat)
     }
 
     /// Returns a string slice with leading and trailing whitespace removed.
@@ -186,6 +231,7 @@ impl CheetahString {
     /// let s = CheetahString::from("  hello  ");
     /// assert_eq!(s.trim(), "hello");
     /// ```
+    #[must_use]
     #[inline]
     pub fn trim(&self) -> &str {
         self.as_str().trim()
@@ -201,6 +247,7 @@ impl CheetahString {
     /// let s = CheetahString::from("  hello");
     /// assert_eq!(s.trim_start(), "hello");
     /// ```
+    #[must_use]
     #[inline]
     pub fn trim_start(&self) -> &str {
         self.as_str().trim_start()
@@ -216,6 +263,7 @@ impl CheetahString {
     /// let s = CheetahString::from("hello  ");
     /// assert_eq!(s.trim_end(), "hello");
     /// ```
+    #[must_use]
     #[inline]
     pub fn trim_end(&self) -> &str {
         self.as_str().trim_end()
@@ -234,6 +282,7 @@ impl CheetahString {
     /// let parts: Vec<&str> = s.split_char(',').rev().collect();
     /// assert_eq!(parts, vec!["c", "b", "a"]);
     /// ```
+    #[must_use]
     #[inline]
     pub fn split_char(&self, pat: char) -> str::Split<'_, char> {
         self.as_str().split(pat)
@@ -260,6 +309,7 @@ impl CheetahString {
     /// let s = CheetahString::from("a::b::c");
     /// let _ = s.split_str("::").rev();
     /// ```
+    #[must_use]
     #[inline]
     pub fn split_str<'a, 'p>(&'a self, pat: &'p str) -> SplitStr<'a, 'p> {
         SplitStr::new(self.as_str(), pat)
@@ -333,8 +383,12 @@ impl CheetahString {
     /// let s = CheetahString::from("hello");
     /// assert_eq!(s.to_uppercase(), "HELLO");
     /// ```
+    #[must_use]
     #[inline]
     pub fn to_uppercase(&self) -> CheetahString {
+        if self.as_str().is_ascii() {
+            return self.map_ascii_case(true);
+        }
         CheetahString::from_string(self.as_str().to_uppercase())
     }
 
@@ -348,8 +402,12 @@ impl CheetahString {
     /// let s = CheetahString::from("HELLO");
     /// assert_eq!(s.to_lowercase(), "hello");
     /// ```
+    #[must_use]
     #[inline]
     pub fn to_lowercase(&self) -> CheetahString {
+        if self.as_str().is_ascii() {
+            return self.map_ascii_case(false);
+        }
         CheetahString::from_string(self.as_str().to_lowercase())
     }
 
@@ -363,9 +421,10 @@ impl CheetahString {
     /// let s = CheetahString::from("hello world");
     /// assert_eq!(s.replace("world", "rust"), "hello rust");
     /// ```
+    #[must_use]
     #[inline]
     pub fn replace<P: AsRef<str>>(&self, from: P, to: &str) -> CheetahString {
-        CheetahString::from_string(self.as_str().replace(from.as_ref(), to))
+        self.replace_matches(from.as_ref(), to, usize::MAX)
     }
 
     /// Returns a new `CheetahString` with the specified range replaced.
@@ -378,9 +437,10 @@ impl CheetahString {
     /// let s = CheetahString::from("hello world");
     /// assert_eq!(s.replacen("l", "L", 1), "heLlo world");
     /// ```
+    #[must_use]
     #[inline]
     pub fn replacen<P: AsRef<str>>(&self, from: P, to: &str, count: usize) -> CheetahString {
-        CheetahString::from_string(self.as_str().replacen(from.as_ref(), to, count))
+        self.replace_matches(from.as_ref(), to, count)
     }
 
     /// Returns a substring as a new `CheetahString`.
@@ -400,6 +460,7 @@ impl CheetahString {
     /// assert_eq!(s.substring(0, 5), "hello");
     /// assert_eq!(s.substring(6, 11), "world");
     /// ```
+    #[must_use]
     #[inline]
     pub fn substring(&self, start: usize, end: usize) -> CheetahString {
         self.try_substring(start, end)
@@ -456,8 +517,117 @@ impl CheetahString {
     /// let s = CheetahString::from("abc");
     /// assert_eq!(s.repeat(3), "abcabcabc");
     /// ```
+    #[must_use]
     #[inline]
     pub fn repeat(&self, n: usize) -> CheetahString {
-        CheetahString::from_string(self.as_str().repeat(n))
+        let value = self.as_str();
+        if n == 1 {
+            return self.clone();
+        }
+        if n == 0 || value.is_empty() {
+            return CheetahString::empty();
+        }
+        let len = value.len().checked_mul(n).expect("capacity overflow");
+        if len <= INLINE_CAPACITY {
+            return super::assemble::assemble(len, |writer| {
+                for _ in 0..n {
+                    writer.push_str(value);
+                }
+            });
+        }
+        // `str::repeat` doubles its buffer, which beats one copy per
+        // repetition when a short value is repeated many times.
+        CheetahString::from_string(value.repeat(n))
+    }
+
+    /// Maps the ASCII letters of an all-ASCII value, reusing `self` when
+    /// nothing changes.
+    #[inline]
+    fn map_ascii_case(&self, upper: bool) -> CheetahString {
+        let value = self.as_str();
+        debug_assert!(value.is_ascii());
+        let changes = if upper {
+            value.bytes().any(|byte| byte.is_ascii_lowercase())
+        } else {
+            value.bytes().any(|byte| byte.is_ascii_uppercase())
+        };
+        if !changes {
+            return self.clone();
+        }
+
+        if let Some(mut inline) = InlineStr::from_str(value) {
+            if upper {
+                inline.make_ascii_uppercase();
+            } else {
+                inline.make_ascii_lowercase();
+            }
+            return CheetahString {
+                inner: InnerString::Inline(inline),
+            };
+        }
+
+        let mut shared: Arc<str> = Arc::from(value);
+        let target = Arc::get_mut(&mut shared).expect("a new Arc is uniquely owned");
+        if upper {
+            target.make_ascii_uppercase();
+        } else {
+            target.make_ascii_lowercase();
+        }
+        CheetahString {
+            inner: InnerString::Shared(shared),
+        }
+    }
+
+    /// Replaces up to `limit` non-overlapping matches. The text is scanned
+    /// twice so the result can be written once, at its exact length.
+    #[inline]
+    fn replace_matches(&self, from: &str, to: &str, limit: usize) -> CheetahString {
+        let value = self.as_str();
+        if from.is_empty() {
+            // An empty pattern matches at every character boundary.
+            return CheetahString::from_string(value.replacen(from, to, limit));
+        }
+
+        if let [byte] = from.as_bytes() {
+            // A one-byte pattern is ASCII, so every match is a char boundary.
+            return self.replace_starts(from.len(), to, limit, || {
+                memchr::memchr_iter(*byte, value.as_bytes())
+            });
+        }
+        let finder = memchr::memmem::Finder::new(from.as_bytes());
+        self.replace_starts(from.len(), to, limit, || finder.find_iter(value.as_bytes()))
+    }
+
+    /// Writes the replacement once at its exact length, given a way to list
+    /// the non-overlapping match starts twice: once to size, once to copy.
+    #[inline]
+    fn replace_starts<I>(
+        &self,
+        from_len: usize,
+        to: &str,
+        limit: usize,
+        starts: impl Fn() -> I,
+    ) -> CheetahString
+    where
+        I: Iterator<Item = usize>,
+    {
+        let value = self.as_str();
+        let matches = starts().take(limit).count();
+        if matches == 0 {
+            return self.clone();
+        }
+
+        let len = (value.len() - matches * from_len)
+            .checked_add(matches.checked_mul(to.len()).expect("capacity overflow"))
+            .expect("capacity overflow");
+        super::assemble::assemble(len, |writer| {
+            let mut last = 0;
+            for start in starts().take(limit) {
+                writer.push_str(&value[last..start]);
+                writer.push_str(to);
+                last = start + from_len;
+            }
+            writer.push_str(&value[last..]);
+        })
     }
 }

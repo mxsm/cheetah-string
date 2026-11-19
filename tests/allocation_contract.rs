@@ -229,3 +229,73 @@ fn v3_allocation_and_clone_contracts() {
         assert_eq!(roundtrip.as_ptr(), payload_pointer);
     }
 }
+
+#[test]
+fn exact_length_assembly_allocates_at_most_once() {
+    let (count, bytes, short) =
+        measure(|| CheetahString::concat(black_box(&["orders", "@", "group-a"])));
+    assert_eq!((count, bytes), (0, 0), "short concat stays inline");
+    assert_eq!(short, "orders@group-a");
+
+    let parts = ["%RETRY%order-consumer-group", "@", "broker-a-instance-0001"];
+    let (count, _, long) = measure(|| CheetahString::concat(black_box(&parts)));
+    assert_eq!(count, 1, "long concat writes straight into its Arc backing");
+    assert_eq!(long, parts.concat().as_str());
+
+    let left = CheetahString::from("a left side longer than the inline limit");
+    let (count, _, added) = measure(|| black_box(left) + black_box("-and-a-right-side"));
+    assert_eq!(count, 1, "long addition allocates only its result");
+    assert_eq!(added.len(), 57);
+
+    let base = CheetahString::from("orders@group-a;tag=pay;tag=refund;tag=pay");
+    let (count, bytes, unchanged) = measure(|| black_box(&base).replace("missing", "x"));
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "replace without a match reuses the value"
+    );
+    assert_eq!(unchanged.as_bytes().as_ptr(), base.as_bytes().as_ptr());
+
+    let (count, _, replaced) = measure(|| black_box(&base).replace("pay", "PAYMENT"));
+    assert_eq!(count, 1, "long replace allocates only its result");
+    assert_eq!(replaced, base.as_str().replace("pay", "PAYMENT").as_str());
+
+    let short_base = CheetahString::from("a.b.c.d");
+    let (count, bytes, short_replaced) = measure(|| black_box(&short_base).replace(".", "::"));
+    assert_eq!((count, bytes), (0, 0), "short replace result stays inline");
+    assert_eq!(short_replaced, "a::b::c::d");
+
+    let topic = CheetahString::from("order-topic");
+    let (count, bytes, upper) = measure(|| black_box(&topic).to_uppercase());
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "short ASCII case mapping stays inline"
+    );
+    assert_eq!(upper, "ORDER-TOPIC");
+
+    let long_topic = CheetahString::from("rmq_sys_trace_topic_with_a_long_name");
+    let (count, _, long_upper) = measure(|| black_box(&long_topic).to_uppercase());
+    assert_eq!(
+        count, 1,
+        "long ASCII case mapping copies once and maps in place"
+    );
+    assert_eq!(long_upper, "RMQ_SYS_TRACE_TOPIC_WITH_A_LONG_NAME");
+
+    let (count, bytes, same) = measure(|| black_box(&long_upper).to_uppercase());
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "an already upper-case value is reused"
+    );
+    assert_eq!(same.as_bytes().as_ptr(), long_upper.as_bytes().as_ptr());
+
+    let unit = CheetahString::from("ab");
+    let (count, bytes, repeated) = measure(|| black_box(&unit).repeat(5));
+    assert_eq!((count, bytes), (0, 0), "short repeat stays inline");
+    assert_eq!(repeated, "ababababab");
+
+    let (count, _, copied) = measure(|| String::from(black_box(&long_topic)));
+    assert_eq!(count, 1, "String::from(&CheetahString) copies once");
+    assert_eq!(copied.capacity(), copied.len());
+}

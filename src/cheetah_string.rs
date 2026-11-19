@@ -1,3 +1,4 @@
+mod assemble;
 mod construct;
 mod convert;
 mod pattern;

@@ -21,6 +21,28 @@
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,
   `Debug`, and `FusedIterator`.
+- `concat`, `+`, `replace`, and `replacen` compute the exact result length
+  and write it once: up to 23 bytes inline with no allocation, otherwise
+  straight into one `Arc<str>` allocation instead of a `String` that is
+  frozen afterwards. A `replace` without a match reuses the value.
+- `to_uppercase` and `to_lowercase` map ASCII input in place: inline
+  results allocate nothing, long results copy once, and values that are
+  already in the requested case are reused.
+- `contains`, `find`, and `rfind` choose their search backend by length.
+  The standard library's SIMD `contains` beat a one-shot `memmem` at every
+  measured length from 20 bytes; `str::find` and `str::rfind` beat it from
+  24 to 127 bytes, and `str::rfind` also beyond.
+
+### Added
+
+- `CheetahString::concat(&[&str])` builds a value from parts with one copy.
+- `find_char` and `rfind_char`, matching the existing `*_char` queries.
+- `&CheetahString` is accepted wherever `StrPattern` is, for example
+  `value.contains(&other)`.
+- `From<&CheetahString> for String`, an exact-capacity copy that skips the
+  `Display` path used by `to_string()`.
+- `#[must_use]` on query and transform methods, which return new values
+  and never modify `self`.
 
 ## 3.1.0
 
