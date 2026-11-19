@@ -39,6 +39,12 @@
 
 ### Added
 
+- `CheetahText` (`bytes` feature): immutable UTF-8 text backed by
+  `bytes::Bytes`. Validating a `Bytes` buffer, `slice`, `try_slice`, and
+  `slice_ref` never copy the text, so decoders can return owned keys and
+  values that share the receive buffer. Static and shared `CheetahString`
+  values convert without copying; equality, ordering, and hashing match
+  `str`.
 - `CheetahString::concat(&[&str])` builds a value from parts with one copy.
 - `find_char` and `rfind_char`, matching the existing `*_char` queries.
 - `&CheetahString` is accepted wherever `StrPattern` is, for example

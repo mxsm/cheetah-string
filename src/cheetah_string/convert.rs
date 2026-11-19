@@ -177,6 +177,44 @@ impl From<CheetahString> for String {
     }
 }
 
+#[cfg(feature = "bytes")]
+impl From<CheetahString> for crate::CheetahText {
+    /// Converts without copying when possible.
+    ///
+    /// Static values are wrapped, and shared values keep their `Arc<str>`
+    /// allocation as the owner of the new buffer. Inline values are copied.
+    #[inline]
+    fn from(value: CheetahString) -> Self {
+        match value.inner {
+            InnerString::Static(text) => crate::CheetahText::from_static(text),
+            InnerString::Shared(shared) => {
+                struct SharedText(Arc<str>);
+
+                impl AsRef<[u8]> for SharedText {
+                    #[inline]
+                    fn as_ref(&self) -> &[u8] {
+                        self.0.as_bytes()
+                    }
+                }
+
+                let bytes = bytes::Bytes::from_owner(SharedText(shared));
+                // SAFETY: the buffer is the contents of an `Arc<str>`.
+                unsafe { crate::CheetahText::from_bytes_unchecked(bytes) }
+            }
+            InnerString::Inline(inline) => crate::CheetahText::copy_from_str(inline.as_str()),
+        }
+    }
+}
+
+#[cfg(feature = "bytes")]
+impl From<&CheetahString> for crate::CheetahText {
+    /// Converts a clone; see `From<CheetahString>`.
+    #[inline]
+    fn from(value: &CheetahString) -> Self {
+        Self::from(value.clone())
+    }
+}
+
 impl From<&CheetahString> for String {
     /// Copies the text into a new `String` with exact capacity.
     ///

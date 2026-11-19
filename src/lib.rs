@@ -20,8 +20,9 @@
 //!
 //! The crate supports `no_std + alloc`. Optional `serde` integration preserves
 //! the text contract, while the `bytes` feature exposes `CheetahBytes` for
-//! byte-oriented data. Byte-to-text conversion validates and copies; only
-//! `bytes::Bytes <-> CheetahBytes` is zero-copy.
+//! byte-oriented data and `CheetahText`, UTF-8 text backed by `bytes::Bytes`.
+//! Validating a `Bytes` buffer into `CheetahText`, and slicing it, never copy
+//! the text; conversion into `CheetahString` copies.
 //!
 //! # Split capability
 //!
@@ -90,11 +91,16 @@ mod cheetah_bytes;
 #[cfg(feature = "serde")]
 mod serde;
 
+#[cfg(feature = "bytes")]
+mod text;
+
 #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
 mod simd;
 
 #[cfg(feature = "bytes")]
 pub use cheetah_bytes::{CheetahBytes, FromUtf8BytesError};
+#[cfg(feature = "bytes")]
+pub use text::CheetahText;
 
 pub use builder::CheetahBuilder;
 pub use cheetah_string::{CheetahString, SplitPattern, SplitStr, StrPattern};
