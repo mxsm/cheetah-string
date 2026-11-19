@@ -116,8 +116,10 @@ impl<'a, 'p> SplitPattern<'a> for &'p str {
 ///
 /// This iterator is intentionally forward-only because Rust's standard string
 /// pattern splitter does not support reverse iteration for `&str` patterns.
+#[derive(Clone, Debug)]
 pub struct SplitStr<'a, 'p>(SplitStrInner<'a, 'p>);
 
+#[derive(Clone, Debug)]
 enum SplitStrInner<'a, 'p> {
     Str(str::Split<'a, &'p str>),
     Char(str::Split<'a, char>),
@@ -150,6 +152,7 @@ fn single_char_pattern(pattern: &str) -> Option<char> {
 impl<'a, 'p> Iterator for SplitStr<'a, 'p> {
     type Item = &'a str;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match &mut self.0 {
             SplitStrInner::Str(iter) => iter.next(),
@@ -157,3 +160,6 @@ impl<'a, 'p> Iterator for SplitStr<'a, 'p> {
         }
     }
 }
+
+// Both inner `str::Split` iterators are fused.
+impl core::iter::FusedIterator for SplitStr<'_, '_> {}

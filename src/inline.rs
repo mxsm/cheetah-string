@@ -75,7 +75,10 @@ impl InlineLength {
 }
 
 /// Shared inline storage for short UTF-8 strings.
-#[derive(Clone, Copy)]
+///
+/// Bytes after `len` are always zero, so two values hold the same text exactly
+/// when the whole structure is equal. The derived `PartialEq` relies on that.
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct InlineStr {
     len: InlineLength,
     data: [u8; INLINE_CAPACITY],
@@ -110,7 +113,10 @@ impl InlineStr {
 
     #[inline]
     pub(crate) fn as_bytes(&self) -> &[u8] {
-        &self.data[..self.len.get()]
+        // `InlineLength` never exceeds the capacity. The clamp lets the
+        // compiler prove the range, so the slice bounds check and its panic
+        // path disappear from every inlined call site.
+        &self.data[..self.len.get().min(INLINE_CAPACITY)]
     }
 
     #[inline]

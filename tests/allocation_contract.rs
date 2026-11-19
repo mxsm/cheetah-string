@@ -134,8 +134,8 @@ fn exact_and_spare_capacity_freeze_costs_are_explicit() {
     let spare_input = spare_string(1024);
     let (count, _, spare) = measure(|| CheetahString::from_string(spare_input));
     assert_eq!(
-        count, 2,
-        "spare-capacity String freeze shrinks then creates Arc backing"
+        count, 1,
+        "spare-capacity String freeze copies into Arc backing without shrinking"
     );
     assert_eq!(spare.len(), 1024);
 
@@ -154,8 +154,8 @@ fn exact_and_spare_capacity_freeze_costs_are_explicit() {
     assert!(spare_builder.capacity() > spare_builder.len());
     let (count, _, spare) = measure(|| spare_builder.finish());
     assert_eq!(
-        count, 2,
-        "spare-capacity builder freeze shrinks then creates Arc backing"
+        count, 1,
+        "spare-capacity builder freeze copies into Arc backing without shrinking"
     );
     assert_eq!(spare.len(), 1024);
 }

@@ -23,7 +23,7 @@ def valid_evidence() -> dict:
             "CheetahString": {
                 "borrowed": {"count": 1, "bytes": 1040},
                 "owned_exact": {"count": 1, "bytes": 1040},
-                "owned_spare": {"count": 2, "bytes": 2064},
+                "owned_spare": {"count": 1, "bytes": 1040},
                 "from_arc_str": {"count": 0, "bytes": 0},
                 "clone": {"count": 0, "bytes": 0},
                 "char": {"count": 0, "bytes": 0},

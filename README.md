@@ -21,7 +21,7 @@ architecture.
 | Other UTF-8 input ≤ 23 bytes | Inline | 0 | 0 |
 | Long `Arc<str>` | Shared | 0; payload pointer is retained | 0 |
 | Long borrowed text or exact-capacity `String` | Shared | 1 | 0 |
-| Long spare-capacity `String` / builder | Shared | 2: shrink/reallocate, then Arc backing | 0 |
+| Long spare-capacity `String` / builder | Shared | 1: copied into Arc backing without shrinking | 0 |
 
 On supported 32-bit and 64-bit targets, both `CheetahString` and
 `Option<CheetahString>` occupy 24 bytes. A 10,000-element vector therefore uses
