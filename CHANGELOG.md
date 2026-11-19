@@ -17,6 +17,10 @@
   directly into the `Arc<str>` backing instead of shrinking first. The
   allocation contract drops from 2 allocation events to 1, and a 64-byte
   freeze fell from 109 ns to 50 ns.
+- Inline construction gathers the bytes with overlapping fixed-size loads
+  and writes the value once, instead of calling a variable-length
+  `memcpy`. Building and dropping an inline value fell from 5.7-9.6 ns to
+  2.0-2.6 ns across lengths of 3 to 23 bytes (compact_str: 5.4-5.9 ns).
 - Inline decoding clamps the length instead of carrying a slice bounds check
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,
