@@ -11,8 +11,8 @@ impl CheetahString {
 
     /// Returns `true` if the string starts with the given pattern.
     ///
-    /// The stable path delegates to `str::starts_with`. The optional
-    /// `experimental-simd` feature enables a benchmark-gated x86_64 experiment.
+    /// String patterns of up to 64 bytes are compared with inline loads
+    /// instead of a `memcmp` call; longer ones use `memcmp`.
     ///
     /// # Examples
     ///
@@ -37,7 +37,7 @@ impl CheetahString {
                     }
                 }
 
-                self.as_str().starts_with(s)
+                crate::compare::starts_with(self.as_bytes(), s.as_bytes())
             }
         }
     }
@@ -61,8 +61,8 @@ impl CheetahString {
 
     /// Returns `true` if the string ends with the given pattern.
     ///
-    /// The stable path delegates to `str::ends_with`. The optional
-    /// `experimental-simd` feature enables a benchmark-gated x86_64 experiment.
+    /// String patterns of up to 64 bytes are compared with inline loads
+    /// instead of a `memcmp` call; longer ones use `memcmp`.
     ///
     /// # Examples
     ///
@@ -87,7 +87,7 @@ impl CheetahString {
                     }
                 }
 
-                self.as_str().ends_with(s)
+                crate::compare::ends_with(self.as_bytes(), s.as_bytes())
             }
         }
     }

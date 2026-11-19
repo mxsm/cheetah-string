@@ -21,6 +21,13 @@
   and writes the value once, instead of calling a variable-length
   `memcpy`. Building and dropping an inline value fell from 5.7-9.6 ns to
   2.0-2.6 ns across lengths of 3 to 23 bytes (compact_str: 5.4-5.9 ns).
+- Equality (`==` against `CheetahString`, `str`, `String`, `Vec<u8>`, and
+  `CheetahText`), `starts_with`, and `ends_with` compare inputs of up to 64
+  bytes with overlapping fixed-size loads instead of calling `memcmp`; longer
+  inputs still use `memcmp`. At 32 and 64 bytes, equality of two values fell
+  from 3.7 and 4.7 ns to 2.4 and 2.7 ns, and `starts_with`/`ends_with` from
+  2.9-3.9 ns to 1.5-2.3 ns for 8- to 64-byte patterns. This is the effect the
+  `experimental-simd` SSE2 loop had, in portable safe code.
 - Inline decoding clamps the length instead of carrying a slice bounds check
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,

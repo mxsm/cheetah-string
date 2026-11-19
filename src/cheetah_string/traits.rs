@@ -34,7 +34,7 @@ impl PartialEq for CheetahString {
                 }
                 #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
                 {
-                    self.as_bytes() == other.as_bytes()
+                    crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
                 }
             }
         }
@@ -50,7 +50,7 @@ impl PartialEq<str> for CheetahString {
         }
         #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
         {
-            self.as_str() == other
+            crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
         }
     }
 }
@@ -64,7 +64,7 @@ impl PartialEq<String> for CheetahString {
         }
         #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
         {
-            self.as_str() == other.as_str()
+            crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
         }
     }
 }
@@ -72,35 +72,35 @@ impl PartialEq<String> for CheetahString {
 impl PartialEq<Vec<u8>> for CheetahString {
     #[inline]
     fn eq(&self, other: &Vec<u8>) -> bool {
-        self.as_bytes() == other.as_slice()
+        crate::compare::bytes_eq(self.as_bytes(), other)
     }
 }
 
 impl<'a> PartialEq<&'a str> for CheetahString {
     #[inline]
     fn eq(&self, other: &&'a str) -> bool {
-        self.as_str() == *other
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
 impl PartialEq<CheetahString> for str {
     #[inline]
     fn eq(&self, other: &CheetahString) -> bool {
-        self == other.as_str()
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
 impl PartialEq<CheetahString> for String {
     #[inline]
     fn eq(&self, other: &CheetahString) -> bool {
-        self.as_str() == other.as_str()
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
 impl PartialEq<CheetahString> for &str {
     #[inline]
     fn eq(&self, other: &CheetahString) -> bool {
-        *self == other.as_str()
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
