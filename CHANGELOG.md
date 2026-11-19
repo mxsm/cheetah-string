@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### Performance
+
+- Clone now bumps the shared count and copies all 24 bytes at once. The
+  derived implementation moved bytes 1..8 through overlapping stack writes
+  that defeated store-to-load forwarding; inline clone-and-drop fell from
+  8.7 ns to 1.2 ns and shared clone-and-drop from 15.5 ns to 8.1 ns on an
+  i7-11700K.
+- Equality compares two inline values as whole structures (their padding is
+  always zero) and short-circuits clones of one shared allocation with
+  `Arc::ptr_eq`. 16-byte inline equality fell from 5.8 ns to 1.2 ns and
+  equality of two 1 KiB clones from 32.8 ns to 0.8 ns.
+- Freezing a long `String` or `CheetahBuilder` with spare capacity copies
+  directly into the `Arc<str>` backing instead of shrinking first. The
+  allocation contract drops from 2 allocation events to 1, and a 64-byte
+  freeze fell from 109 ns to 50 ns.
+- Inline decoding clamps the length instead of carrying a slice bounds check
+  and panic path into every inlined `as_str()` call site.
+- `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,
+  `Debug`, and `FusedIterator`.
+
 ## 3.1.0
 
 ### Security

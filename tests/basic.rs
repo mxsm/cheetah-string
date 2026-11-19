@@ -454,3 +454,58 @@ fn test_from_bytes_feature() {
     let invalid = Bytes::from_static(&[0xFF, 0xFE]);
     assert!(CheetahString::try_from(invalid).is_err());
 }
+
+#[test]
+fn equality_is_consistent_across_storage_variants() {
+    let long = "a value that is longer than the inline capacity";
+    let shared = CheetahString::from(long);
+    let shared_clone = shared.clone();
+    let shared_copy = CheetahString::from(long.to_string());
+    let static_long = CheetahString::from_static_str(long);
+    assert_eq!(shared, shared_clone);
+    assert_eq!(shared, shared_copy);
+    assert_eq!(shared, static_long);
+    assert_eq!(static_long, shared_copy);
+
+    let inline = CheetahString::from("orders@group-a01");
+    let static_short = CheetahString::from_static_str("orders@group-a01");
+    assert_eq!(inline, CheetahString::from("orders@group-a01"));
+    assert_eq!(inline, static_short);
+    assert_ne!(inline, CheetahString::from("orders@group-a02"));
+    // Same prefix, different length: zero padding must not make them equal.
+    assert_ne!(CheetahString::from("ab"), CheetahString::from("ab\0"));
+    assert_ne!(CheetahString::from(""), CheetahString::from("\0"));
+    assert_ne!(
+        shared,
+        CheetahString::from("a value that is longer than the inline capacitY")
+    );
+}
+
+#[test]
+fn split_str_iterator_is_cloneable_and_fused() {
+    fn assert_fused<I: std::iter::FusedIterator>(_: &I) {}
+
+    let value = CheetahString::from("a::b::c");
+    let mut parts = value.split_str("::");
+    assert_fused(&parts);
+    assert_eq!(parts.next(), Some("a"));
+    let rest: Vec<_> = parts.clone().collect();
+    assert_eq!(rest, ["b", "c"]);
+    assert_eq!(parts.by_ref().count(), 2);
+    assert_eq!(parts.next(), None);
+    assert_eq!(parts.next(), None);
+    assert!(!format!("{parts:?}").is_empty());
+
+    let csv = CheetahString::from("a,b");
+    let single: Vec<_> = csv.split_str(",").clone().collect();
+    assert_eq!(single, ["a", "b"]);
+}
+
+#[test]
+fn spare_capacity_freeze_keeps_contents() {
+    let mut owned = String::with_capacity(256);
+    owned.push_str("a long value with plenty of spare capacity behind it");
+    let frozen = CheetahString::from_string(owned.clone());
+    assert_eq!(frozen, owned.as_str());
+    assert_eq!(frozen.len(), owned.len());
+}

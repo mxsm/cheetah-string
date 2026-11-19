@@ -161,7 +161,7 @@ cat > "$RESULT_DIR/contracts.json" <<'JSON'
   "char_allocations_max": 0,
   "inline_concat_allocations_max": 0,
   "owned_exact_freeze_allocations_max": 1,
-  "owned_spare_freeze_allocations_max": 2,
+  "owned_spare_freeze_allocations_max": 1,
   "cheetah_string_size_64": 24,
   "option_cheetah_string_size_64": 24,
   "vector_slots_per_10000_bytes": 240000,

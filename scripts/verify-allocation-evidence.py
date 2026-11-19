@@ -70,7 +70,7 @@ def validate_evidence(evidence: dict[str, Any]) -> None:
     allocations = require_mapping(allocation_groups.get("CheetahString"), "allocations.CheetahString")
     require_allocation(allocations, "borrowed", 1)
     require_allocation(allocations, "owned_exact", 1)
-    require_allocation(allocations, "owned_spare", 2)
+    require_allocation(allocations, "owned_spare", 1)
     for name in ("from_arc_str", "clone", "char", "short_concat"):
         require_allocation(allocations, name, 0, zero_bytes=True)
 

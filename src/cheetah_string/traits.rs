@@ -1,4 +1,5 @@
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use core::borrow::Borrow;
 use core::cmp::Ordering;
@@ -7,7 +8,7 @@ use core::hash::{Hash, Hasher};
 use core::ops::Add;
 use core::str;
 
-use super::repr::INLINE_CAPACITY;
+use super::repr::{InnerString, INLINE_CAPACITY};
 use super::CheetahString;
 
 #[inline]
@@ -35,13 +36,24 @@ fn concatenate(left: &str, right: &str) -> CheetahString {
 impl PartialEq for CheetahString {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-        {
-            crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
-        }
-        #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
-        {
-            self.as_str() == other.as_str()
+        match (&self.inner, &other.inner) {
+            // Inline padding is always zero, so whole-value equality is exact
+            // and avoids a variable-length `memcmp` call.
+            (InnerString::Inline(left), InnerString::Inline(right)) => left == right,
+            // Clones of one shared allocation are equal without reading it.
+            (InnerString::Shared(left), InnerString::Shared(right)) if Arc::ptr_eq(left, right) => {
+                true
+            }
+            _ => {
+                #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
+                {
+                    crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
+                }
+                #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
+                {
+                    self.as_bytes() == other.as_bytes()
+                }
+            }
         }
     }
 }

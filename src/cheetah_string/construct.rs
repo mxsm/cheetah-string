@@ -206,9 +206,11 @@ impl CheetahString {
                 inner: InnerString::Inline(inline),
             }
         } else {
-            // Arc<str> is the final backing. Converting a String with spare
-            // capacity can require a shrink/reallocation before the Arc copy.
-            let arc_str: Arc<str> = s.into_boxed_str().into();
+            // Arc<str> is the final backing and needs its own allocation for
+            // the reference counts. Copying straight from the String skips the
+            // shrink-to-fit reallocation that `into_boxed_str` would perform
+            // when the String has spare capacity.
+            let arc_str: Arc<str> = Arc::from(s.as_str());
             CheetahString {
                 inner: InnerString::Shared(arc_str),
             }
