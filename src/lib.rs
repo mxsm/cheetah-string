@@ -37,8 +37,10 @@
 //! an x86_64 SSE2 experiment for controlled benchmarking only. The deprecated
 //! `simd` feature remains a 3.x compatibility alias.
 //!
-//! Substring search through `find()` and `contains()` continues to use
-//! `memchr`/`memmem`, which is the stable default search backend.
+//! Substring search picks its backend by length: short needles on text that
+//! spans a 16-byte block use the standard library's SIMD `contains`;
+//! `find()` uses `memchr::memmem` below 24 and from 128 bytes. Use
+//! [`CheetahFinder`] to search for one needle repeatedly.
 //!
 //! # Retired experimental features
 //!

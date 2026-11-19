@@ -8,29 +8,12 @@ use core::hash::{Hash, Hasher};
 use core::ops::Add;
 use core::str;
 
-use super::repr::{InnerString, INLINE_CAPACITY};
+use super::repr::InnerString;
 use super::CheetahString;
 
 #[inline]
 fn concatenate(left: &str, right: &str) -> CheetahString {
-    let len = left
-        .len()
-        .checked_add(right.len())
-        .expect("concatenated string length overflow");
-
-    if len <= INLINE_CAPACITY {
-        let mut bytes = [0; INLINE_CAPACITY];
-        bytes[..left.len()].copy_from_slice(left.as_bytes());
-        bytes[left.len()..len].copy_from_slice(right.as_bytes());
-        let value =
-            str::from_utf8(&bytes[..len]).expect("concatenating valid strings must preserve UTF-8");
-        return CheetahString::from_slice(value);
-    }
-
-    let mut value = String::with_capacity(len);
-    value.push_str(left);
-    value.push_str(right);
-    CheetahString::from_string(value)
+    CheetahString::concat(&[left, right])
 }
 
 impl PartialEq for CheetahString {

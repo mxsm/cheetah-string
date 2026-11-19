@@ -22,6 +22,7 @@ architecture.
 | Long `Arc<str>` | Shared | 0; payload pointer is retained | 0 |
 | Long borrowed text or exact-capacity `String` | Shared | 1 | 0 |
 | Long spare-capacity `String` / builder | Shared | 1: copied into Arc backing without shrinking | 0 |
+| `concat`, `+`, `replace` results | Inline up to 23 bytes, otherwise Shared | 0 inline, otherwise 1: written once at the exact length | 0 |
 
 On supported 32-bit and 64-bit targets, both `CheetahString` and
 `Option<CheetahString>` occupy 24 bytes. A 10,000-element vector therefore uses
@@ -105,7 +106,12 @@ value.push_str("@group-a");
 ## Search and split
 
 Equality, prefix, and suffix checks use Rust's portable slice/`str` paths.
-Substring search uses `memchr`/`memmem`.
+Substring search picks its backend by length: `contains` uses the standard
+library's SIMD search for 2- to 32-byte needles once the text spans a
+16-byte block; `find` and `rfind` use `memchr::memmem` on inline-sized
+text, std from 24 bytes, and `find` returns to `memmem` from 128 bytes.
+Single-byte needles use `memchr`. Use `CheetahFinder` to search for one
+needle repeatedly.
 
 Iterator capabilities are explicit:
 

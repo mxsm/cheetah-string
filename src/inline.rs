@@ -105,6 +105,20 @@ impl InlineStr {
         Some(inline)
     }
 
+    /// Wraps an assembly buffer whose first `len` bytes are already written.
+    ///
+    /// # Safety
+    ///
+    /// `data[..len]` must be valid UTF-8, every byte of `data[len..]` must be
+    /// zero, and `len` must not exceed [`INLINE_CAPACITY`].
+    #[inline]
+    pub(crate) unsafe fn from_assembled(data: [u8; INLINE_CAPACITY], len: usize) -> Self {
+        Self {
+            len: InlineLength::new(len).expect("assembled length fits inline"),
+            data,
+        }
+    }
+
     #[inline]
     pub(crate) fn as_str(&self) -> &str {
         // SAFETY: InlineStr is only constructed from valid UTF-8 strings.
@@ -117,6 +131,23 @@ impl InlineStr {
         // compiler prove the range, so the slice bounds check and its panic
         // path disappear from every inlined call site.
         &self.data[..self.len.get().min(INLINE_CAPACITY)]
+    }
+
+    /// Converts ASCII letters to upper case in place.
+    ///
+    /// ASCII case mapping never touches non-ASCII bytes or the zero padding,
+    /// so the UTF-8 and padding invariants are preserved.
+    #[inline]
+    pub(crate) fn make_ascii_uppercase(&mut self) {
+        let len = self.len();
+        self.data[..len].make_ascii_uppercase();
+    }
+
+    /// Converts ASCII letters to lower case in place.
+    #[inline]
+    pub(crate) fn make_ascii_lowercase(&mut self) {
+        let len = self.len();
+        self.data[..len].make_ascii_lowercase();
     }
 
     #[inline]
