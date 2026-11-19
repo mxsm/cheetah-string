@@ -99,10 +99,45 @@ impl InlineStr {
             return None;
         }
 
-        let mut inline = Self::empty();
-        inline.data[..value.len()].copy_from_slice(value.as_bytes());
-        inline.len = InlineLength::new(value.len())?;
-        Some(inline)
+        let b = value.as_bytes();
+        let n = b.len();
+        let len = InlineLength::new(n)?;
+        // Gather the bytes with overlapping fixed-size loads and write the
+        // whole value once; a variable-length memcpy call costs about 5 ns.
+        let (w0, w1, w2) = if n >= 16 {
+            let w0 = u64::from_le_bytes(b[..8].try_into().expect("8 bytes"));
+            let w1 = u64::from_le_bytes(b[8..16].try_into().expect("8 bytes"));
+            let w2 = if n == 16 {
+                0
+            } else {
+                u64::from_le_bytes(b[n - 8..].try_into().expect("8 bytes")) >> ((24 - n) * 8)
+            };
+            (w0, w1, w2)
+        } else if n >= 8 {
+            let w0 = u64::from_le_bytes(b[..8].try_into().expect("8 bytes"));
+            let w1 = if n == 8 {
+                0
+            } else {
+                u64::from_le_bytes(b[n - 8..].try_into().expect("8 bytes")) >> ((16 - n) * 8)
+            };
+            (w0, w1, 0)
+        } else if n >= 4 {
+            let first = u64::from(u32::from_le_bytes(b[..4].try_into().expect("4 bytes")));
+            let last = u64::from(u32::from_le_bytes(b[n - 4..].try_into().expect("4 bytes")));
+            (first | (last << ((n - 4) * 8)), 0, 0)
+        } else if n > 0 {
+            let w0 = u64::from(b[0])
+                | (u64::from(b[n / 2]) << ((n / 2) * 8))
+                | (u64::from(b[n - 1]) << ((n - 1) * 8));
+            (w0, 0, 0)
+        } else {
+            (0, 0, 0)
+        };
+        let mut data = [0u8; INLINE_CAPACITY];
+        data[..8].copy_from_slice(&w0.to_le_bytes());
+        data[8..16].copy_from_slice(&w1.to_le_bytes());
+        data[16..].copy_from_slice(&w2.to_le_bytes()[..7]);
+        Some(Self { len, data })
     }
 
     /// Wraps an assembly buffer whose first `len` bytes are already written.
@@ -183,5 +218,38 @@ mod tests {
         }
         assert!(InlineLength::new(INLINE_CAPACITY + 1).is_none());
         assert!(InlineLength::new(usize::MAX).is_none());
+    }
+
+    #[test]
+    fn register_copy_matches_a_byte_copy_for_every_inline_length() {
+        // ASCII covers every length; the multi-byte alphabets put the
+        // overlapping loads across character boundaries.
+        for alphabet in [
+            "abcdefghijklmnopqrstuvwxyz",
+            "\u{e9}a\u{1f980}b\u{4e2d}",
+            "\u{0}\u{7f}\u{80}",
+        ] {
+            let mut text = alloc::string::String::new();
+            for character in alphabet.chars().cycle() {
+                if text.len() + character.len_utf8() > INLINE_CAPACITY {
+                    break;
+                }
+                text.push(character);
+            }
+            for end in (0..=text.len()).filter(|&end| text.is_char_boundary(end)) {
+                let value = &text[..end];
+                let inline = InlineStr::from_str(value).expect("fits inline");
+                assert_eq!(inline.as_str(), value);
+                assert_eq!(inline.len(), value.len());
+
+                let mut expected = [0u8; INLINE_CAPACITY];
+                expected[..value.len()].copy_from_slice(value.as_bytes());
+                assert_eq!(
+                    inline.data, expected,
+                    "padding must stay zero for {value:?}"
+                );
+            }
+        }
+        assert!(InlineStr::from_str("twenty-four-bytes-value!").is_none());
     }
 }
