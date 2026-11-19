@@ -44,3 +44,18 @@ fn try_substring_reports_public_error_variants() {
         Err(Error::InvalidCharBoundary { index: 1 })
     ));
 }
+
+#[cfg(feature = "bytes")]
+#[test]
+fn cheetah_text_serializes_as_a_string() {
+    use cheetah_string::CheetahText;
+
+    let value = CheetahText::from_static("topic-\u{1f980}");
+    let json = serde_json::to_string(&value).unwrap();
+    assert_eq!(json, "\"topic-\u{1f980}\"");
+    let decoded: CheetahText = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded, value);
+    let escaped: CheetahText = serde_json::from_str(r#""line\nbreak""#).unwrap();
+    assert_eq!(escaped, "line\nbreak");
+    assert!(serde_json::from_str::<CheetahText>("42").is_err());
+}

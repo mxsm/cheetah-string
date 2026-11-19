@@ -299,3 +299,47 @@ fn exact_length_assembly_allocates_at_most_once() {
     assert_eq!(count, 1, "String::from(&CheetahString) copies once");
     assert_eq!(copied.capacity(), copied.len());
 }
+
+#[cfg(feature = "bytes")]
+#[test]
+fn bytes_backed_text_never_copies_validated_or_sliced_text() {
+    use cheetah_string::CheetahText;
+
+    let frame = bytes::Bytes::from_static(
+        b"KEYS=order-10001;TAGS=paid;UNIQ_KEY=7F00000100002A9F000000000001",
+    );
+    let (count, bytes, text) =
+        measure(|| CheetahText::try_from_bytes(black_box(frame.clone())).unwrap());
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "validating a Bytes buffer keeps its storage"
+    );
+
+    let (count, bytes, value) = measure(|| black_box(&text).slice(36..));
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "slicing a static buffer allocates nothing"
+    );
+    assert_eq!(value, "7F00000100002A9F000000000001");
+
+    let (count, bytes, key) = measure(|| {
+        let text = black_box(&text);
+        text.slice_ref(text.split(';').next().unwrap())
+    });
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "slice_ref of a static buffer allocates nothing"
+    );
+    assert_eq!(key, "KEYS=order-10001");
+
+    let long = CheetahString::from("a shared value that is longer than the inline limit");
+    let (count, _, adopted) = measure(|| CheetahText::from(black_box(long.clone())));
+    assert_eq!(
+        count, 1,
+        "a shared CheetahString becomes the buffer owner without a copy"
+    );
+    assert_eq!(adopted.as_bytes().as_ptr(), long.as_bytes().as_ptr());
+}
