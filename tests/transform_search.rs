@@ -26,6 +26,8 @@ const NEEDLES: &[&str] = &[
     "group",
     "pay|",
     "q@z!",
+    "consumer",
+    "consumer-group;t",
     "-",
     "\u{1f980}",
     "\u{df}",
@@ -35,10 +37,12 @@ const NEEDLES: &[&str] = &[
 
 fn haystacks() -> Vec<String> {
     let mut out: Vec<String> = TEXTS.iter().map(|text| text.to_string()).collect();
-    // Lengths around the std SIMD block threshold and the 128-byte memmem cutoff.
+    // Lengths around the std SIMD block threshold, the needle-dependent `find`
+    // and `rfind` cutoffs, and memmem's 64-byte Rabin-Karp limit.
     let unit = "TopicTest@consumer-group;tag=pay|";
     for len in [
-        15usize, 16, 18, 19, 20, 31, 32, 33, 47, 48, 63, 64, 127, 128, 129, 300, 1024,
+        15usize, 16, 18, 19, 20, 21, 22, 27, 28, 29, 31, 32, 33, 39, 40, 41, 47, 48, 55, 56, 57,
+        63, 64, 65, 127, 128, 129, 300, 1024,
     ] {
         let base: String = unit.chars().cycle().take(len).collect();
         out.push(base.clone());
@@ -77,6 +81,36 @@ fn search_matches_str_on_every_dispatch_path() {
             assert_eq!(value.find_char(character), hay.find(character));
             assert_eq!(value.rfind_char(character), hay.rfind(character));
             assert_eq!(value.contains(character), hay.contains(character));
+        }
+    }
+}
+
+#[test]
+fn search_matches_str_when_the_needle_is_not_shorter_than_the_haystack() {
+    for hay in haystacks() {
+        let value = CheetahString::from(hay.as_str());
+        let mut longer = hay.clone();
+        longer.push('x');
+        let mut changed = hay.clone();
+        if let Some(last) = changed.pop() {
+            changed.push(if last == 'x' { 'y' } else { 'x' });
+        }
+        for needle in [hay.as_str(), longer.as_str(), changed.as_str()] {
+            assert_eq!(
+                value.contains(needle),
+                hay.contains(needle),
+                "contains {hay:?} {needle:?}"
+            );
+            assert_eq!(
+                value.find(needle),
+                hay.find(needle),
+                "find {hay:?} {needle:?}"
+            );
+            assert_eq!(
+                value.rfind(needle),
+                hay.rfind(needle),
+                "rfind {hay:?} {needle:?}"
+            );
         }
     }
 }

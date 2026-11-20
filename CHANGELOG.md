@@ -49,10 +49,21 @@
 - `to_uppercase` and `to_lowercase` map ASCII input in place: inline
   results allocate nothing, long results copy once, and values that are
   already in the requested case are reused.
-- `contains`, `find`, and `rfind` choose their search backend by length.
-  The standard library's SIMD `contains` beat a one-shot `memmem` at every
-  measured length from 20 bytes; `str::find` and `str::rfind` beat it from
-  24 to 127 bytes, and `str::rfind` also beyond.
+- `contains`, `find`, and `rfind` choose their search backend by haystack
+  and needle length, using thresholds measured on x86_64 and aarch64 with
+  `benches/search_thresholds.rs`. A needle at least as long as the haystack
+  is answered by one comparison. `contains` uses the standard library's SIMD
+  search for 2- to 32-byte needles once the haystack holds a 16-byte block
+  plus the needle. `find` uses `str::find` when
+  `16 + 3 * needle <= haystack < 64`, and `rfind` uses `str::rfind` when
+  `haystack >= 24 + 2 * needle`; every other search uses a one-shot `memmem`.
+  On an i7-11700K the backend `find` picked was 16% slower than the faster
+  one on geometric mean and up to 4.3x slower in the worst case; it is now
+  within 0.5% and 1.3x (`rfind`: 11% and 3.7x before, under 1% and 1.5x
+  after). The `ubuntu-latest` and `ubuntu-24.04-arm` runners stay within 4%
+  and 1.8x. A 16-byte needle in a 32-byte haystack fell from 43 ns to 18 ns
+  for both. The `Search thresholds` workflow reruns the measurement on both
+  targets when `src/search.rs` changes.
 
 ### Added
 
