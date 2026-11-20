@@ -198,6 +198,17 @@ fn ordering_matches_str_across_storage_kinds() {
         ]
         .map(String::from),
     );
+    // 23-byte inline values that differ in one byte only: where the first and
+    // second words meet (7, 8), where the second and last words overlap (15,
+    // 16), and the last byte (22), which the whole-buffer comparison must read.
+    for at in [7usize, 8, 15, 16, 22] {
+        for replacement in ["a", "z", "\u{0}"] {
+            let mut text = "m".repeat(23);
+            text.replace_range(at..at + 1, replacement);
+            texts.push(text);
+        }
+    }
+    texts.push("m".repeat(23));
     // Inline and shared values, plus static ones that are short enough to be
     // inline in the other forms.
     let mut values: Vec<CheetahString> = texts
@@ -231,6 +242,49 @@ fn ordering_matches_str_across_storage_kinds() {
     let mut unique = expected.clone();
     unique.dedup();
     assert_eq!(keys, unique);
+}
+
+#[test]
+fn split_str_hand_off_matches_str_split() {
+    // Every piece is preceded by more than four positions that pass the
+    // first/last-byte screen without matching, so the split hands the rest
+    // of the text to `str::split` partway through.
+    let cases = [
+        (format!("{}tail", "aXbaXbaXbaXbaXbaXba_b".repeat(50)), "a_b"),
+        // A multi-byte separator, whose first byte is a UTF-8 lead byte.
+        (
+            format!("{}end", "\u{e9}X\u{e9}".repeat(10) + "\u{e9}_\u{e9}").repeat(5),
+            "\u{e9}_\u{e9}",
+        ),
+        (
+            format!("head{}", "\u{1f980}xy\u{1f980}".repeat(12)),
+            "\u{1f980}zy\u{1f980}",
+        ),
+    ];
+    for (text, separator) in &cases {
+        let value = CheetahString::from(text.as_str());
+        let expected: Vec<&str> = text.split(separator).collect();
+        assert_eq!(
+            value.split_str(separator).collect::<Vec<_>>(),
+            expected,
+            "split_str {text:?} {separator:?}"
+        );
+        // Cloning and resuming at every point, before and after the hand-off,
+        // yields the remaining pieces.
+        for taken in 0..=expected.len() + 1 {
+            let mut parts = value.split_str(separator);
+            for _ in 0..taken {
+                parts.next();
+            }
+            let resumed: Vec<&str> = parts.clone().collect();
+            let remaining: Vec<&str> = expected.iter().skip(taken).copied().collect();
+            assert_eq!(
+                resumed, remaining,
+                "resume after {taken} pieces of {separator:?}"
+            );
+            assert_eq!(parts.collect::<Vec<_>>(), remaining);
+        }
+    }
 }
 
 #[test]

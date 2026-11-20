@@ -32,7 +32,7 @@ esac
 case "$FEATURES" in
   default) ;;
   *)
-    echo "feature profile must be 'default'; the SIMD benchmark is captured separately" >&2
+    echo "feature profile must be 'default'" >&2
     exit 2
     ;;
 esac
@@ -106,8 +106,7 @@ json_escape() {
   printf '  "llvm": "%s",\n' "$(json_escape "$LLVM")"
   printf '  "cpu": "%s",\n' "$(json_escape "$CPU")"
   printf '  "os": "%s",\n' "$(json_escape "$OS")"
-  printf '  "features": "%s",\n' "$(json_escape "$FEATURES;simd-bench=isolated")"
-  printf '  "simd_feature_alias": "experimental-simd",\n'
+  printf '  "features": "%s",\n' "$(json_escape "$FEATURES")"
   printf '  "harness_identity": {\n'
   printf '    "benchmark_tree": "%s",\n' "$BENCHMARK_TREE"
   printf '    "allocation_contract_blob": "%s",\n' "$ALLOCATION_CONTRACT_BLOB"
@@ -123,7 +122,7 @@ json_escape() {
     printf '  "smoke": false,\n'
   fi
   printf '  "profile": "bench",\n'
-  printf '  "benchmark_ids": ["layout","comprehensive","mutation","mq_topic","mq_properties","mq_remoting_header","pattern","simd","shared_backing"]\n'
+  printf '  "benchmark_ids": ["layout","comprehensive","mutation","mq_topic","mq_properties","mq_remoting_header","pattern","comparison","shared_backing"]\n'
   printf '}\n'
 } > "$RESULT_DIR/metadata.json"
 
@@ -184,7 +183,7 @@ run_cargo mq-remoting-header.txt bench --bench mq_remoting_header -- $CRITERION_
 # shellcheck disable=SC2086
 run_cargo pattern.txt bench --bench pattern -- $CRITERION_ARGS
 # shellcheck disable=SC2086
-run_cargo simd.txt bench --bench simd --features experimental-simd -- $CRITERION_ARGS
+run_cargo comparison.txt bench --bench comparison -- $CRITERION_ARGS
 # shellcheck disable=SC2086
 run_cargo shared-backing.txt bench --bench shared_backing -- $CRITERION_ARGS
 python3 "$SCRIPT_DIR/verify-allocation-evidence.py" "$RESULT_DIR/shared-backing.txt"

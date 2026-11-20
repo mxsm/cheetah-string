@@ -46,11 +46,14 @@
   separator's first and last bytes, in a loop the compiler turns into vector
   compares, and checks the middle of the few positions that pass without a
   `memcmp` call. After four positions that pass the screen but do not match,
-  it hands the rest of the text to `str::find`. On an i7-11700K splitting
-  `"a::b::c::d::e"` fell from 36 ns to 26 ns, a 200-byte value without the
-  separator from 65 ns to 22 ns, a 32-byte separator from 98 ns to 20 ns, and
-  `"aab"` in 200 `a`s from 186 ns to 23 ns. Text built to pass the screen
-  without matching, such as `"a_b"` in `aXb` repeated, is about 5% slower.
+  the split finishes the current piece with `str::find` and splits the rest
+  with one `str::split`, so such text builds at most two searchers per split.
+  On an i7-11700K splitting `"a::b::c::d::e"` fell from 36 ns to 26 ns, a
+  200-byte value without the separator from 65 ns to 22 ns, a 32-byte
+  separator from 98 ns to 20 ns, and `"aab"` in 200 `a`s from 186 ns to
+  23 ns. Text built to pass the screen without matching, such as `"a_b"` in
+  `aXb` repeated, is up to 15% slower for a single piece and within 5% of
+  `str::split` over many pieces.
 - Ordering two inline values compares their zero-padded buffers as three
   big-endian words, then their lengths, instead of calling `memcmp`; the
   order is exactly `str`'s. On an i7-11700K comparing two 14-byte keys fell
@@ -120,7 +123,9 @@
   unchanged. For builds that enabled the feature, measured on an i7-11700K:
   24-byte equality fell from 6.0 ns to 3.1 ns and `starts_with` from 4.9 ns
   to 2.0 ns, while equality of 32, 65, and 256-byte values rose by 0.2 to
-  1.1 ns.
+  1.1 ns. The `simd` benchmark and the `simd_demo` example are renamed to
+  `comparison` and `comparison_demo`, and benchmark captures no longer record
+  a SIMD backend.
 
 ### Verification
 
