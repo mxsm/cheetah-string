@@ -14,9 +14,10 @@ use crate::inline::InlineStr;
 
 /// Sequential writer over a buffer of exactly the requested length.
 ///
-/// Only whole `&str` pieces can be written, and [`assemble`] checks that the
-/// pieces filled the buffer exactly, so the finished bytes are always the
-/// concatenation of valid UTF-8 strings.
+/// Only whole `&str` pieces can be written, optionally with one ASCII byte
+/// swapped for another, and [`assemble`] checks that the pieces filled the
+/// buffer exactly, so the finished bytes are always the concatenation of
+/// valid UTF-8 strings.
 pub(super) struct Writer<'a> {
     target: Target<'a>,
     filled: usize,
@@ -40,6 +41,39 @@ impl Writer<'_> {
             Target::Inline(bytes) => bytes[self.filled..end].copy_from_slice(piece.as_bytes()),
             Target::Shared(slots) => {
                 slots[self.filled..end].write_copy_of_slice(piece.as_bytes());
+            }
+        }
+        self.filled = end;
+    }
+
+    /// Appends `piece` with every `from` byte replaced by `to`.
+    ///
+    /// ASCII bytes never occur inside a multi-byte UTF-8 sequence, so swapping
+    /// one ASCII byte for another leaves the piece valid UTF-8. The loop has
+    /// no data-dependent branch and compiles to vector selects.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `from` or `to` is not ASCII, or if the pieces exceed the
+    /// length passed to [`assemble`].
+    #[inline]
+    pub(super) fn push_str_swapping_ascii(&mut self, piece: &str, from: u8, to: u8) {
+        assert!(
+            from.is_ascii() && to.is_ascii(),
+            "only ASCII bytes can be swapped"
+        );
+        let end = self.filled + piece.len();
+        let swap = |byte: u8| if byte == from { to } else { byte };
+        match &mut self.target {
+            Target::Inline(bytes) => {
+                for (slot, &byte) in bytes[self.filled..end].iter_mut().zip(piece.as_bytes()) {
+                    *slot = swap(byte);
+                }
+            }
+            Target::Shared(slots) => {
+                for (slot, &byte) in slots[self.filled..end].iter_mut().zip(piece.as_bytes()) {
+                    slot.write(swap(byte));
+                }
             }
         }
         self.filled = end;
@@ -77,9 +111,9 @@ fn assemble_inline(len: usize, fill: impl FnOnce(&mut Writer<'_>)) -> CheetahStr
     };
     fill(&mut writer);
     assert_eq!(writer.filled(), len, "assembled pieces must fill the value");
-    // SAFETY: the writer only accepts whole `&str` pieces and they filled the
-    // first `len` bytes exactly, so those bytes are a concatenation of valid
-    // UTF-8 strings. The rest of the zero-initialised buffer was never
+    // SAFETY: the writer only accepts whole `&str` pieces, possibly with one
+    // ASCII byte swapped for another, and they filled the first `len` bytes
+    // exactly, so those bytes are a concatenation of valid UTF-8 strings. The rest of the zero-initialised buffer was never
     // written, and `len <= INLINE_CAPACITY` was checked by `assemble`.
     let inline = unsafe { InlineStr::from_assembled(buffer, len) };
     CheetahString {
@@ -101,8 +135,9 @@ fn assemble_shared(len: usize, fill: impl FnOnce(&mut Writer<'_>)) -> CheetahStr
     assert_eq!(writer.filled(), len, "assembled pieces must fill the value");
     // SAFETY: the writer initialised all `len` slots above.
     let bytes: Arc<[u8]> = unsafe { slots.assume_init() };
-    // SAFETY: the bytes are a concatenation of whole `&str` pieces, so they
-    // are valid UTF-8, and `str` has the same layout as `[u8]`. This is the
+    // SAFETY: the bytes are a concatenation of whole `&str` pieces, possibly
+    // with one ASCII byte swapped for another, so they are valid UTF-8, and
+    // `str` has the same layout as `[u8]`. This is the
     // conversion the standard library uses for `From<&str> for Arc<str>`.
     let shared: Arc<str> = unsafe { Arc::from_raw(Arc::into_raw(bytes) as *const str) };
     CheetahString {

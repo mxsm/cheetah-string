@@ -36,6 +36,11 @@
   are inline, and a larger `with_capacity` still allocates up front, so
   `into_string()` keeps returning that buffer without copying. Builds that
   start on the heap are about 5% slower because each push checks the state.
+- `replace` with a one-byte pattern and a one-byte replacement, such as
+  `replace("-", "_")`, copies the text once and swaps the matching bytes on
+  the way, instead of scanning it twice and copying it piece by piece. On an
+  i7-11700K a 50-byte value fell from 99 ns to 52 ns, a 14-byte inline value
+  from 37 ns to 15 ns, and a 1 KiB value from 1,062 ns to 78 ns.
 - Inline decoding clamps the length instead of carrying a slice bounds check
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,
