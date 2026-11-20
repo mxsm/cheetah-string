@@ -109,6 +109,11 @@ class RepositoryContractTests(unittest.TestCase):
         self.assertIn("cargo test --test allocation_contract --all-features -- --test-threads=1", performance)
         self.assertIn("cargo bench --bench shared_backing -- __allocation_evidence_only__ --noplot", performance)
         self.assertIn("python scripts/verify-allocation-evidence.py", performance)
+        self.assertIn("valgrind", performance)
+        self.assertIn(
+            "python head/scripts/instruction-counts.py --base base --head head",
+            performance,
+        )
 
     def test_retired_score_governance_is_not_shipped(self) -> None:
         retired = (

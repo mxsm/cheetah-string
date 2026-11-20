@@ -90,6 +90,15 @@
 - `#[must_use]` on query and transform methods, which return new values
   and never modify `self`.
 
+### Verification
+
+- Pull requests compare the per-iteration instruction counts of 25 fixed
+  scenarios (construction, clone, equality, hashing, search, building,
+  formatting, and transforms) with the base branch under Valgrind's
+  cachegrind, and fail when a scenario runs more than 2% and more than 2
+  instructions slower. The `accept-instruction-regression` label reports a
+  deliberate regression without failing.
+
 ## 3.1.0
 
 ### Security
