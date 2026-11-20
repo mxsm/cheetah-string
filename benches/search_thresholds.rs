@@ -72,37 +72,54 @@ fn text(len: usize) -> Vec<u8> {
     TEXT.iter().copied().cycle().take(len).collect()
 }
 
-/// Returns an `n`-byte needle that never occurs in the periodic haystack
-/// text. A common-byte needle uses only haystack bytes, so prefilters keep
-/// finding candidate matches; a rare-byte needle has one byte in the middle
-/// that the haystack never contains.
-fn absent_needle(n: usize, kind: Kind) -> String {
-    // Two periods plus the needle cover every alignment of the text.
-    let probe = text(2 * TEXT.len() + n);
-    let mut needle = text(7 + n).split_off(7);
-    if let Kind::Rare = kind {
-        needle[n / 2] = b'Z';
-        return String::from_utf8(needle).expect("the text is ASCII");
-    }
-    for &last in TEXT {
+/// Returns an `n`-byte needle that never occurs in `base`, the haystack
+/// without a late hit. A common-byte needle is cut from `base` and only its
+/// last byte is changed, to another byte of `base`, so every needle byte
+/// occurs in the haystack and prefilters keep finding candidate matches. A
+/// rare-byte needle then swaps its middle byte for one `base` never contains.
+fn absent_needle(base: &[u8], n: usize, kind: Kind) -> Vec<u8> {
+    let mut needle: Vec<u8> = (0..n).map(|i| base[(7 + i) % base.len()]).collect();
+    let mut bytes = base.to_vec();
+    bytes.sort_unstable();
+    bytes.dedup();
+    for &last in &bytes {
         needle[n - 1] = last;
-        if memchr::memmem::find(&probe, &needle).is_none() {
-            return String::from_utf8(needle).expect("the text is ASCII");
+        if memchr::memmem::find(base, &needle).is_none() {
+            if let Kind::Rare = kind {
+                assert!(
+                    !base.contains(&b'Z'),
+                    "the haystack text must not contain Z"
+                );
+                needle[n / 2] = b'Z';
+            }
+            return needle;
         }
     }
-    panic!("no absent {n}-byte needle");
+    panic!(
+        "no absent {n}-byte needle for a {}-byte haystack",
+        base.len()
+    );
 }
 
-/// Builds a haystack of `len` bytes. A late hit puts the needle where the
+/// Builds the haystack for one cell. A late hit puts the needle where the
 /// scan ends: at the end for forward searches and at the start for `rfind`.
-fn haystack(len: usize, needle: &str, op: Op, case: Case) -> String {
-    let mut bytes = text(len);
+fn haystack(base: &[u8], needle: &[u8], op: Op, case: Case) -> String {
+    let mut bytes = base.to_vec();
     if case == Case::LateHit {
         let at = match op {
-            Op::Contains | Op::Find => len - needle.len(),
+            Op::Contains | Op::Find => bytes.len() - needle.len(),
             Op::Rfind => 0,
         };
-        bytes[at..at + needle.len()].copy_from_slice(needle.as_bytes());
+        bytes[at..at + needle.len()].copy_from_slice(needle);
+        let found = match op {
+            Op::Contains | Op::Find => memchr::memmem::find(&bytes, needle),
+            Op::Rfind => memchr::memmem::rfind(&bytes, needle),
+        };
+        assert_eq!(
+            found,
+            Some(at),
+            "the inserted needle must be the match the scan reaches"
+        );
     }
     String::from_utf8(bytes).expect("the text is ASCII")
 }
@@ -208,10 +225,6 @@ fn cell([std, memmem, cheetah]: [f64; 3]) -> String {
 }
 
 fn print_table(op: Op, case: Case, kind: Kind) {
-    let needles: Vec<String> = NEEDLE_LENS
-        .iter()
-        .map(|&n| absent_needle(n, kind))
-        .collect();
     println!();
     println!("## {}, {}, {}", op.name(), case.name(), kind.name());
     println!();
@@ -219,15 +232,17 @@ fn print_table(op: Op, case: Case, kind: Kind) {
     println!("| haystack |{header}");
     println!("| ---: |{}", " --- |".repeat(NEEDLE_LENS.len()));
     for &len in &HAYSTACK_LENS {
+        let base = text(len);
         let mut row = format!("| {len} |");
-        for needle in &needles {
-            if needle.len() > len {
+        for &n in &NEEDLE_LENS {
+            if n > len {
                 row.push_str(" - |");
                 continue;
             }
-            let haystack = haystack(len, needle, op, case);
+            let needle = String::from_utf8(absent_needle(&base, n, kind)).expect("ASCII");
+            let haystack = haystack(&base, needle.as_bytes(), op, case);
             let value = CheetahString::from(haystack.as_str());
-            let times = measure(op, &haystack, &value, needle);
+            let times = measure(op, &haystack, &value, &needle);
             row.push_str(&format!(" {} |", cell(times)));
         }
         println!("{row}");
