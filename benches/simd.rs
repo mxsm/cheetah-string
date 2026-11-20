@@ -1,9 +1,8 @@
 use cheetah_string::CheetahString;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
-#[cfg(feature = "experimental-simd")]
-const ACTIVE_BACKEND: &str = "experimental-simd";
-#[cfg(not(feature = "experimental-simd"))]
+// `experimental-simd` is a retired no-op, so every build measures the
+// portable comparison.
 const ACTIVE_BACKEND: &str = "portable-default";
 
 const SHORT_NEEDLE_CASES: [(&str, &str, &str); 3] = [

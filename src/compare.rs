@@ -2,9 +2,10 @@
 //!
 //! For short inputs the call into `memcmp` costs more than the comparison
 //! itself. Up to 64 bytes, two or four overlapping fixed-size loads per side
-//! cover every byte, so equality becomes a few XORs. The `experimental-simd`
-//! SSE2 loop was faster than `memcmp` only for this reason; this path gets the
-//! same effect in portable safe code. Longer inputs still use `memcmp`.
+//! cover every byte, so equality becomes a few XORs. The SSE2 loop of the
+//! retired `experimental-simd` feature was faster than `memcmp` only for this
+//! reason; this path gets the same effect in portable safe code. Longer
+//! inputs still use `memcmp`.
 
 /// Longest input compared with inline loads.
 const INLINE_COMPARE_MAX: usize = 64;

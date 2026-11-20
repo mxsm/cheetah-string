@@ -232,8 +232,8 @@ The conversion matrix above is covered by `tests/bytes.rs` and
 | `std` | Yes | Standard-library integration |
 | `serde` | No | Serialization and deserialization |
 | `bytes` | No | `CheetahBytes` and explicit byte/text conversion |
-| `experimental-simd` | No | Isolated x86_64 SSE2 benchmark path; not recommended for production |
-| `simd` | No | Deprecated alpha compatibility alias for `experimental-simd` |
+| `experimental-simd` | No | Deprecated no-op; the portable comparison replaced the x86_64 SSE2 experiment |
+| `simd` | No | Deprecated no-op alias for `experimental-simd` |
 | `experimental-packed` | No | Deprecated no-op retained for 3.x dependency compatibility |
 
 Optional features do not change the stable `CheetahString` layout.

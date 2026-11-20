@@ -111,14 +111,25 @@
 - `#[must_use]` on query and transform methods, which return new values
   and never modify `self`.
 
+### Deprecated
+
+- The `experimental-simd` feature and its `simd` alias are compatibility
+  no-ops. Their x86_64 SSE2 comparison loop, 186 lines with six `unsafe`
+  blocks and one `unsafe fn`, is removed; equality, `starts_with`, and
+  `ends_with` use the portable comparison in every build. Default builds are
+  unchanged. For builds that enabled the feature, measured on an i7-11700K:
+  24-byte equality fell from 6.0 ns to 3.1 ns and `starts_with` from 4.9 ns
+  to 2.0 ns, while equality of 32, 65, and 256-byte values rose by 0.2 to
+  1.1 ns.
+
 ### Verification
 
-- Pull requests compare the per-iteration instruction counts of 25 fixed
-  scenarios (construction, clone, equality, hashing, search, building,
-  formatting, and transforms) with the base branch under Valgrind's
-  cachegrind, and fail when a scenario runs more than 2% and more than 2
-  instructions slower. The `accept-instruction-regression` label reports a
-  deliberate regression without failing.
+- Pull requests compare the per-iteration instruction counts of 30 fixed
+  scenarios (construction, clone, equality, ordering, hashing, search,
+  splitting, building, formatting, and transforms) with the base branch
+  under Valgrind's cachegrind, and fail when a scenario runs more than 2%
+  and more than 2 instructions slower. The `accept-instruction-regression`
+  label reports a deliberate regression without failing.
 
 ## 3.1.0
 

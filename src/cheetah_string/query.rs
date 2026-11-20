@@ -29,16 +29,7 @@ impl CheetahString {
     pub fn starts_with<P: StrPattern>(&self, pat: P) -> bool {
         match classify(&pat) {
             StrPatternKind::Char(c) => self.as_str().starts_with(c),
-            StrPatternKind::Str(s) => {
-                #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-                {
-                    if s.len() >= crate::simd::SIMD_THRESHOLD {
-                        return crate::simd::starts_with_bytes(self.as_bytes(), s.as_bytes());
-                    }
-                }
-
-                crate::compare::starts_with(self.as_bytes(), s.as_bytes())
-            }
+            StrPatternKind::Str(s) => crate::compare::starts_with(self.as_bytes(), s.as_bytes()),
         }
     }
 
@@ -79,16 +70,7 @@ impl CheetahString {
     pub fn ends_with<P: StrPattern>(&self, pat: P) -> bool {
         match classify(&pat) {
             StrPatternKind::Char(c) => self.as_str().ends_with(c),
-            StrPatternKind::Str(s) => {
-                #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-                {
-                    if s.len() >= crate::simd::SIMD_THRESHOLD {
-                        return crate::simd::ends_with_bytes(self.as_bytes(), s.as_bytes());
-                    }
-                }
-
-                crate::compare::ends_with(self.as_bytes(), s.as_bytes())
-            }
+            StrPatternKind::Str(s) => crate::compare::ends_with(self.as_bytes(), s.as_bytes()),
         }
     }
 

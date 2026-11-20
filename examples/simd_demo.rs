@@ -1,5 +1,5 @@
-// Example demonstrating SIMD-accelerated string operations in CheetahString
-// Run with: cargo run --example simd_demo --features simd
+// Example demonstrating equality, prefix, and suffix checks in CheetahString
+// Run with: cargo run --example simd_demo
 
 use cheetah_string::CheetahString;
 
@@ -97,6 +97,6 @@ fn main() {
     }
 
     println!("\n  Summary: {} errors, {} warnings", errors, warnings);
-    println!("\nNote: When compiled with --features simd, these operations use SSE2 SIMD");
-    println!("      instructions for improved performance on longer strings (>= 16 bytes).");
+    println!("\nNote: up to 64 bytes these checks use overlapping word loads instead of a");
+    println!("      memcmp call. The `simd` feature is a retired no-op.");
 }

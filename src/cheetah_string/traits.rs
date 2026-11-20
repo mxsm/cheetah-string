@@ -27,16 +27,7 @@ impl PartialEq for CheetahString {
             (InnerString::Shared(left), InnerString::Shared(right)) if Arc::ptr_eq(left, right) => {
                 true
             }
-            _ => {
-                #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-                {
-                    crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
-                }
-                #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
-                {
-                    crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
-                }
-            }
+            _ => crate::compare::bytes_eq(self.as_bytes(), other.as_bytes()),
         }
     }
 }
@@ -44,28 +35,14 @@ impl PartialEq for CheetahString {
 impl PartialEq<str> for CheetahString {
     #[inline]
     fn eq(&self, other: &str) -> bool {
-        #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-        {
-            crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
-        }
-        #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
-        {
-            crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
-        }
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
 impl PartialEq<String> for CheetahString {
     #[inline]
     fn eq(&self, other: &String) -> bool {
-        #[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-        {
-            crate::simd::eq_bytes(self.as_bytes(), other.as_bytes())
-        }
-        #[cfg(not(all(feature = "experimental-simd", target_arch = "x86_64")))]
-        {
-            crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
-        }
+        crate::compare::bytes_eq(self.as_bytes(), other.as_bytes())
     }
 }
 
