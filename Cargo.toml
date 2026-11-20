@@ -38,9 +38,9 @@ serde = ["dep:serde", "serde/alloc"]
 bytes = ["dep:bytes"]
 # Deprecated compatibility no-op. The unsound packed v1 API was retired in 3.1.
 experimental-packed = []
+# Deprecated compatibility no-ops. The x86_64 SSE2 comparison experiment was
+# retired after 3.1; every build uses the portable comparison in `compare.rs`.
 experimental-simd = []
-# Deprecated v2 compatibility alias retained for the 3.x migration window.
-# Prefer `experimental-simd`.
 simd = ["experimental-simd"]
 
 [dev-dependencies]

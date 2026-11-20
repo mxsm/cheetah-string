@@ -30,13 +30,12 @@
 //! [`CheetahString::split_str`] is forward-only, so unsupported reverse
 //! iteration fails at compile time rather than panicking at runtime.
 //!
-//! # Search and experimental SIMD
+//! # Comparison and search
 //!
 //! Equality, prefix, and suffix comparisons of up to 64 bytes use
 //! overlapping fixed-size loads instead of a `memcmp` call; longer inputs use
-//! `memcmp`. The `experimental-simd` feature exposes an x86_64 SSE2
-//! experiment for controlled benchmarking only. The deprecated `simd` feature
-//! remains a 3.x compatibility alias.
+//! `memcmp`. Two inline values are ordered by comparing their buffers as
+//! words, also without a `memcmp` call.
 //!
 //! Substring search picks its backend by haystack and needle length, with
 //! thresholds measured on x86_64 and aarch64: short needles on text that
@@ -57,12 +56,9 @@
 //! use cheetah_string::packed::PackedCheetahString;
 //! ```
 //!
-//! To opt into the isolated experiment:
-//!
-//! ```toml
-//! [dependencies]
-//! cheetah-string = { version = "3.1.0", features = ["experimental-simd"] }
-//! ```
+//! The `experimental-simd` flag and its `simd` alias are compatibility
+//! no-ops as well. Their x86_64 SSE2 comparison loop was replaced by the
+//! portable comparison every build uses, which needs no `unsafe` code.
 //!
 //! # Example
 //!
@@ -98,9 +94,6 @@ mod serde;
 
 #[cfg(feature = "bytes")]
 mod text;
-
-#[cfg(all(feature = "experimental-simd", target_arch = "x86_64"))]
-mod simd;
 
 #[cfg(feature = "bytes")]
 pub use cheetah_bytes::{CheetahBytes, FromUtf8BytesError};
