@@ -198,4 +198,90 @@ mod tests {
     fn overlong_fill_is_rejected() {
         let _ = assemble(3, |writer| writer.push_str("too long"));
     }
+
+    /// Builds `head + swap(middle) + tail` with the writer and the same text
+    /// independently, with `str::replace`.
+    fn swapped(
+        head: &str,
+        middle: &str,
+        from: u8,
+        to: u8,
+        tail: &str,
+    ) -> (crate::CheetahString, String) {
+        let value = assemble(head.len() + middle.len() + tail.len(), |writer| {
+            writer.push_str(head);
+            writer.push_str_swapping_ascii(middle, from, to);
+            writer.push_str(tail);
+        });
+        let replacement = String::from(char::from(to));
+        let expected = [
+            head,
+            middle.replace(char::from(from), &replacement).as_str(),
+            tail,
+        ]
+        .concat();
+        (value, expected)
+    }
+
+    #[test]
+    fn ascii_swap_mixes_with_whole_pieces_in_both_storages() {
+        let cases: [(&str, &str, u8, u8, &str); 5] = [
+            // Inline: the result must equal an independently built inline
+            // value, which also checks that the padding stayed zero.
+            ("", "a-b-c", b'-', b'_', ""),
+            ("\u{e9}", "x-\u{1f980}-y", b'-', b'.', "!"),
+            ("k", "a-b", b'-', b'\0', "z"),
+            // Shared, with multi-byte text around and inside the swapped piece.
+            (
+                "\u{1f980} head ",
+                "order-consumer-group-\u{e9}t\u{e9}-0001",
+                b'-',
+                b'_',
+                " tail",
+            ),
+            ("", "no match in this piece of shared text", b'#', b'_', ""),
+        ];
+        for (head, middle, from, to, tail) in cases {
+            let (value, expected) = swapped(head, middle, from, to, tail);
+            assert_eq!(value.as_str(), expected);
+            assert_eq!(value, crate::CheetahString::from(expected.as_str()));
+            match &value.inner {
+                InnerString::Inline(_) => assert!(expected.len() <= 23),
+                InnerString::Shared(_) => assert!(expected.len() > 23),
+                InnerString::Static(_) => panic!("assembled values are never static"),
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "only ASCII bytes can be swapped")]
+    fn ascii_swap_rejects_a_non_ascii_pattern_byte() {
+        let _ = assemble(3, |writer| {
+            writer.push_str_swapping_ascii("abc", 0xc3, b'_')
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "only ASCII bytes can be swapped")]
+    fn ascii_swap_rejects_a_non_ascii_replacement_byte() {
+        let _ = assemble(3, |writer| {
+            writer.push_str_swapping_ascii("a-c", b'-', 0xa9)
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "assembled pieces must fill the value")]
+    fn ascii_swap_short_fill_is_rejected() {
+        let _ = assemble(40, |writer| {
+            writer.push_str_swapping_ascii("a-b", b'-', b'_')
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn ascii_swap_overlong_fill_is_rejected() {
+        let _ = assemble(2, |writer| {
+            writer.push_str_swapping_ascii("a-b", b'-', b'_')
+        });
+    }
 }
