@@ -209,6 +209,32 @@ impl InlineStr {
         self.len.get()
     }
 
+    /// Orders two values as `str` does: byte by byte, then shorter first.
+    ///
+    /// Bytes past `len` are zero, so comparing the whole buffers as
+    /// big-endian words finds the first differing byte. When the buffers are
+    /// equal, one text is the other followed only by zero bytes, and the
+    /// shorter one sorts first. No `memcmp` call is needed.
+    #[inline]
+    pub(crate) fn cmp_bytes(&self, other: &Self) -> core::cmp::Ordering {
+        self.ordered_words()
+            .cmp(&other.ordered_words())
+            .then(self.len.get().cmp(&other.len.get()))
+    }
+
+    /// The buffer as three big-endian words whose order is the byte order.
+    ///
+    /// The last word overlaps the second by one byte. Tuples compare the
+    /// last word only when the second words are equal, and then the shared
+    /// byte is equal too, so the overlap does not change the order and saves
+    /// assembling a 7-byte word.
+    #[inline]
+    fn ordered_words(&self) -> (u64, u64, u64) {
+        let data = &self.data;
+        let word = |at: usize| u64::from_be_bytes(data[at..at + 8].try_into().expect("8 bytes"));
+        (word(0), word(8), word(INLINE_CAPACITY - 8))
+    }
+
     #[inline]
     pub(crate) fn is_empty(&self) -> bool {
         self.len == InlineLength::L0
@@ -270,5 +296,63 @@ mod tests {
             }
         }
         assert!(InlineStr::from_str("twenty-four-bytes-value!").is_none());
+    }
+
+    #[test]
+    fn whole_buffer_order_matches_str_order() {
+        use alloc::string::String;
+        use alloc::vec::Vec;
+
+        let mut texts: Vec<String> = [
+            "",
+            "\u{0}",
+            "\u{0}\u{0}",
+            "a",
+            "a\u{0}",
+            "a\u{0}\u{0}",
+            "a\u{0}b",
+            "a\u{1}",
+            "ab",
+            "b",
+            "\u{7f}",
+            "\u{e9}",
+            "\u{e9}a",
+            "\u{1f980}",
+            "orders@group-a",
+            "orders@group-b",
+            "orders",
+        ]
+        .iter()
+        .map(|text| String::from(*text))
+        .collect();
+        // Differences in each word and at the bytes where words meet or
+        // overlap: 7/8, 15/16, and the last byte, 22.
+        for at in [0usize, 6, 7, 8, 9, 14, 15, 16, 17, 21, 22] {
+            for len in [at + 1, INLINE_CAPACITY] {
+                if len > INLINE_CAPACITY {
+                    continue;
+                }
+                let base: String = "m".repeat(len);
+                for replacement in ["a", "z", "\u{0}"] {
+                    let mut text = base.clone();
+                    text.replace_range(at..at + 1, replacement);
+                    texts.push(text);
+                }
+                texts.push(base);
+            }
+        }
+        for left in &texts {
+            for right in &texts {
+                let (a, b) = (
+                    InlineStr::from_str(left).expect("fits inline"),
+                    InlineStr::from_str(right).expect("fits inline"),
+                );
+                assert_eq!(
+                    a.cmp_bytes(&b),
+                    left.as_str().cmp(right.as_str()),
+                    "{left:?} vs {right:?}"
+                );
+            }
+        }
     }
 }

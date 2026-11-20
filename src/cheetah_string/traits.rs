@@ -116,7 +116,17 @@ impl PartialOrd for CheetahString {
 impl Ord for CheetahString {
     #[inline]
     fn cmp(&self, other: &Self) -> Ordering {
-        self.as_str().cmp(other.as_str())
+        // Two inline values compare as whole buffers, without a `memcmp` call;
+        // the order is the same as `str`'s. Matching on `self` first, as the
+        // `str` path does anyway, keeps the other combinations as cheap as
+        // before.
+        match &self.inner {
+            InnerString::Inline(left) => match &other.inner {
+                InnerString::Inline(right) => left.cmp_bytes(right),
+                _ => left.as_str().cmp(other.as_str()),
+            },
+            _ => self.as_str().cmp(other.as_str()),
+        }
     }
 }
 
