@@ -133,6 +133,7 @@ fn transforms_match_str() {
             for replacement in [
                 "",
                 "X",
+                "-",
                 "@@",
                 "\u{1f980}",
                 "a replacement longer than the inline limit",

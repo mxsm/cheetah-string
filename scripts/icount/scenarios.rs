@@ -204,6 +204,18 @@ fn replace_shared(iterations: u64) {
     repeat(iterations, || black_box(&value).replace(black_box("-"), "_"));
 }
 
+fn replace_two_byte(iterations: u64) {
+    let value = CheetahString::from(LONG);
+    repeat(iterations, || black_box(&value).replace(black_box("er"), "ER"));
+}
+
+fn replacen_shared(iterations: u64) {
+    let value = CheetahString::from(LONG);
+    repeat(iterations, || {
+        black_box(&value).replacen(black_box("-"), "_", 2)
+    });
+}
+
 const SCENARIOS: &[(&str, fn(u64))] = &[
     ("from_str/inline_14B", from_str_inline),
     ("from_str/shared_50B", from_str_shared),
@@ -230,6 +242,8 @@ const SCENARIOS: &[(&str, fn(u64))] = &[
     ("to_uppercase/inline_14B", to_uppercase_inline),
     ("to_uppercase/shared_50B", to_uppercase_shared),
     ("replace/shared_50B", replace_shared),
+    ("replace/two_byte_50B", replace_two_byte),
+    ("replacen/first_2_of_50B", replacen_shared),
 ];
 
 fn main() {

@@ -585,6 +585,21 @@ impl CheetahString {
         }
     }
 
+    /// Replaces every `from` byte with `to`, both ASCII, once the caller has
+    /// found at least one `from` byte.
+    ///
+    /// The length does not change, so the text is copied once with the
+    /// matching bytes swapped on the way, instead of being scanned twice and
+    /// copied piece by piece. Kept out of line so the other replacement paths
+    /// do not carry this body.
+    #[inline(never)]
+    fn swap_ascii_byte(&self, from: u8, to: u8) -> CheetahString {
+        let value = self.as_str();
+        super::assemble::assemble(value.len(), |writer| {
+            writer.push_str_swapping_ascii(value, from, to);
+        })
+    }
+
     /// Replaces up to `limit` non-overlapping matches. The text is scanned
     /// twice so the result can be written once, at its exact length.
     #[inline]
@@ -602,6 +617,12 @@ impl CheetahString {
         }
 
         if let [byte] = from.as_bytes() {
+            if let ([to_byte], usize::MAX) = (to.as_bytes(), limit) {
+                if memchr::memchr(*byte, value.as_bytes()).is_none() {
+                    return self.clone();
+                }
+                return self.swap_ascii_byte(*byte, *to_byte);
+            }
             // A one-byte pattern is ASCII, so every match is a char boundary.
             return self.replace_starts(from.len(), to, limit, || {
                 memchr::memchr_iter(*byte, value.as_bytes())

@@ -14,9 +14,10 @@ use crate::inline::InlineStr;
 
 /// Sequential writer over a buffer of exactly the requested length.
 ///
-/// Only whole `&str` pieces can be written, and [`assemble`] checks that the
-/// pieces filled the buffer exactly, so the finished bytes are always the
-/// concatenation of valid UTF-8 strings.
+/// Only whole `&str` pieces can be written, optionally with one ASCII byte
+/// swapped for another, and [`assemble`] checks that the pieces filled the
+/// buffer exactly, so the finished bytes are always the concatenation of
+/// valid UTF-8 strings.
 pub(super) struct Writer<'a> {
     target: Target<'a>,
     filled: usize,
@@ -40,6 +41,39 @@ impl Writer<'_> {
             Target::Inline(bytes) => bytes[self.filled..end].copy_from_slice(piece.as_bytes()),
             Target::Shared(slots) => {
                 slots[self.filled..end].write_copy_of_slice(piece.as_bytes());
+            }
+        }
+        self.filled = end;
+    }
+
+    /// Appends `piece` with every `from` byte replaced by `to`.
+    ///
+    /// ASCII bytes never occur inside a multi-byte UTF-8 sequence, so swapping
+    /// one ASCII byte for another leaves the piece valid UTF-8. The loop has
+    /// no data-dependent branch and compiles to vector selects.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `from` or `to` is not ASCII, or if the pieces exceed the
+    /// length passed to [`assemble`].
+    #[inline]
+    pub(super) fn push_str_swapping_ascii(&mut self, piece: &str, from: u8, to: u8) {
+        assert!(
+            from.is_ascii() && to.is_ascii(),
+            "only ASCII bytes can be swapped"
+        );
+        let end = self.filled + piece.len();
+        let swap = |byte: u8| if byte == from { to } else { byte };
+        match &mut self.target {
+            Target::Inline(bytes) => {
+                for (slot, &byte) in bytes[self.filled..end].iter_mut().zip(piece.as_bytes()) {
+                    *slot = swap(byte);
+                }
+            }
+            Target::Shared(slots) => {
+                for (slot, &byte) in slots[self.filled..end].iter_mut().zip(piece.as_bytes()) {
+                    slot.write(swap(byte));
+                }
             }
         }
         self.filled = end;
@@ -77,9 +111,9 @@ fn assemble_inline(len: usize, fill: impl FnOnce(&mut Writer<'_>)) -> CheetahStr
     };
     fill(&mut writer);
     assert_eq!(writer.filled(), len, "assembled pieces must fill the value");
-    // SAFETY: the writer only accepts whole `&str` pieces and they filled the
-    // first `len` bytes exactly, so those bytes are a concatenation of valid
-    // UTF-8 strings. The rest of the zero-initialised buffer was never
+    // SAFETY: the writer only accepts whole `&str` pieces, possibly with one
+    // ASCII byte swapped for another, and they filled the first `len` bytes
+    // exactly, so those bytes are a concatenation of valid UTF-8 strings. The rest of the zero-initialised buffer was never
     // written, and `len <= INLINE_CAPACITY` was checked by `assemble`.
     let inline = unsafe { InlineStr::from_assembled(buffer, len) };
     CheetahString {
@@ -101,8 +135,9 @@ fn assemble_shared(len: usize, fill: impl FnOnce(&mut Writer<'_>)) -> CheetahStr
     assert_eq!(writer.filled(), len, "assembled pieces must fill the value");
     // SAFETY: the writer initialised all `len` slots above.
     let bytes: Arc<[u8]> = unsafe { slots.assume_init() };
-    // SAFETY: the bytes are a concatenation of whole `&str` pieces, so they
-    // are valid UTF-8, and `str` has the same layout as `[u8]`. This is the
+    // SAFETY: the bytes are a concatenation of whole `&str` pieces, possibly
+    // with one ASCII byte swapped for another, so they are valid UTF-8, and
+    // `str` has the same layout as `[u8]`. This is the
     // conversion the standard library uses for `From<&str> for Arc<str>`.
     let shared: Arc<str> = unsafe { Arc::from_raw(Arc::into_raw(bytes) as *const str) };
     CheetahString {
@@ -162,5 +197,91 @@ mod tests {
     #[should_panic]
     fn overlong_fill_is_rejected() {
         let _ = assemble(3, |writer| writer.push_str("too long"));
+    }
+
+    /// Builds `head + swap(middle) + tail` with the writer and the same text
+    /// independently, with `str::replace`.
+    fn swapped(
+        head: &str,
+        middle: &str,
+        from: u8,
+        to: u8,
+        tail: &str,
+    ) -> (crate::CheetahString, String) {
+        let value = assemble(head.len() + middle.len() + tail.len(), |writer| {
+            writer.push_str(head);
+            writer.push_str_swapping_ascii(middle, from, to);
+            writer.push_str(tail);
+        });
+        let replacement = String::from(char::from(to));
+        let expected = [
+            head,
+            middle.replace(char::from(from), &replacement).as_str(),
+            tail,
+        ]
+        .concat();
+        (value, expected)
+    }
+
+    #[test]
+    fn ascii_swap_mixes_with_whole_pieces_in_both_storages() {
+        let cases: [(&str, &str, u8, u8, &str); 5] = [
+            // Inline: the result must equal an independently built inline
+            // value, which also checks that the padding stayed zero.
+            ("", "a-b-c", b'-', b'_', ""),
+            ("\u{e9}", "x-\u{1f980}-y", b'-', b'.', "!"),
+            ("k", "a-b", b'-', b'\0', "z"),
+            // Shared, with multi-byte text around and inside the swapped piece.
+            (
+                "\u{1f980} head ",
+                "order-consumer-group-\u{e9}t\u{e9}-0001",
+                b'-',
+                b'_',
+                " tail",
+            ),
+            ("", "no match in this piece of shared text", b'#', b'_', ""),
+        ];
+        for (head, middle, from, to, tail) in cases {
+            let (value, expected) = swapped(head, middle, from, to, tail);
+            assert_eq!(value.as_str(), expected);
+            assert_eq!(value, crate::CheetahString::from(expected.as_str()));
+            match &value.inner {
+                InnerString::Inline(_) => assert!(expected.len() <= 23),
+                InnerString::Shared(_) => assert!(expected.len() > 23),
+                InnerString::Static(_) => panic!("assembled values are never static"),
+            }
+        }
+    }
+
+    #[test]
+    #[should_panic(expected = "only ASCII bytes can be swapped")]
+    fn ascii_swap_rejects_a_non_ascii_pattern_byte() {
+        let _ = assemble(3, |writer| {
+            writer.push_str_swapping_ascii("abc", 0xc3, b'_')
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "only ASCII bytes can be swapped")]
+    fn ascii_swap_rejects_a_non_ascii_replacement_byte() {
+        let _ = assemble(3, |writer| {
+            writer.push_str_swapping_ascii("a-c", b'-', 0xa9)
+        });
+    }
+
+    #[test]
+    #[should_panic(expected = "assembled pieces must fill the value")]
+    fn ascii_swap_short_fill_is_rejected() {
+        let _ = assemble(40, |writer| {
+            writer.push_str_swapping_ascii("a-b", b'-', b'_')
+        });
+    }
+
+    #[test]
+    #[should_panic]
+    fn ascii_swap_overlong_fill_is_rejected() {
+        let _ = assemble(2, |writer| {
+            writer.push_str_swapping_ascii("a-b", b'-', b'_')
+        });
     }
 }
