@@ -135,16 +135,19 @@ enum SplitStrInner<'a, 'p> {
     Short(ShortSplit<'a, 'p>),
 }
 
-/// Separators of 2 up to this many bytes are found with `memchr` on their
-/// first byte and a check of the rest, which skips building the Two-Way
-/// searcher that `str::split` sets up on every call.
+/// Separators of 2 up to this many bytes are found by [`find_short`], which
+/// needs no setup, instead of the Two-Way searcher that `str::split` builds on
+/// every call. The middle of a candidate is checked with `compare::bytes_eq`,
+/// which handles up to 64 bytes without a `memcmp` call.
 const SHORT_SEPARATOR_MAX: usize = 32;
 
-/// Candidates whose first byte matches but whose rest does not, tolerated in
-/// one search before it hands the remaining text to `str::find`. Each costs a
-/// `memchr` call, so text where the separator's first byte is common but the
-/// separator is not would otherwise cost a call every few bytes.
-const SHORT_SEPARATOR_FALSE_CANDIDATES: usize = 2;
+/// Candidate positions screened together by [`find_short`].
+const SCREEN_BLOCK: usize = 16;
+
+/// Positions that pass the screen but not the full comparison, tolerated in
+/// one search before the rest of the text goes to `str::find`. Ordinary text
+/// rarely has any; text built to defeat the screen pays for at most this many.
+const SHORT_SEPARATOR_FALSE_CANDIDATES: usize = 4;
 
 impl<'a, 'p> SplitStr<'a, 'p> {
     #[inline]
@@ -192,28 +195,59 @@ impl<'a> ShortSplit<'a, '_> {
     }
 }
 
-/// Returns the first position of `needle`, of at least two bytes, in
-/// `haystack`.
+/// Returns the first position of `needle`, of 2 to [`SHORT_SEPARATOR_MAX`]
+/// bytes, in `haystack`.
+///
+/// Positions are screened [`SCREEN_BLOCK`] at a time on the needle's first and
+/// last bytes, in a fixed-size loop the compiler turns into vector compares,
+/// and only positions that pass compare the middle. Text that merely repeats
+/// the separator's first byte, or its leading bytes, produces no candidates.
 #[inline]
 fn find_short(haystack: &str, needle: &str) -> Option<usize> {
     let bytes = haystack.as_bytes();
-    let (&first, tail) = needle.as_bytes().split_first()?;
+    let pattern = needle.as_bytes();
+    let span = pattern.len() - 1;
+    let (first, last_byte, middle) = (pattern[0], pattern[span], &pattern[1..span]);
     // The last position where a whole separator still fits.
-    let last = bytes.len().checked_sub(needle.len())?;
-    let mut from = 0;
-    for _ in 0..SHORT_SEPARATOR_FALSE_CANDIDATES {
-        let at = from + memchr::memchr(first, &bytes[from..=last])?;
-        if crate::compare::bytes_eq(&bytes[at + 1..at + needle.len()], tail) {
-            return Some(at);
+    let last = bytes.len().checked_sub(pattern.len())?;
+    let middle_matches = |at: usize| crate::compare::bytes_eq(&bytes[at + 1..at + span], middle);
+    let mut false_candidates = 0;
+
+    let mut at = 0;
+    // Every position of a block, plus `span`, stays inside the text while
+    // `at + SCREEN_BLOCK <= last + 1`.
+    while at + SCREEN_BLOCK <= last + 1 {
+        let heads: &[u8; SCREEN_BLOCK] = bytes[at..at + SCREEN_BLOCK]
+            .try_into()
+            .expect("a block of heads");
+        let tails: &[u8; SCREEN_BLOCK] = bytes[at + span..at + span + SCREEN_BLOCK]
+            .try_into()
+            .expect("a block of tails");
+        let mut hits = 0u32;
+        for i in 0..SCREEN_BLOCK {
+            hits |= u32::from((heads[i] == first) & (tails[i] == last_byte)) << i;
         }
-        from = at + 1;
-        if from > last {
-            return None;
+        while hits != 0 {
+            let candidate = at + hits.trailing_zeros() as usize;
+            if middle_matches(candidate) {
+                return Some(candidate);
+            }
+            false_candidates += 1;
+            if false_candidates > SHORT_SEPARATOR_FALSE_CANDIDATES {
+                return find_from(haystack, needle, candidate);
+            }
+            hits &= hits - 1;
         }
+        at += SCREEN_BLOCK;
     }
-    // `first` begins a character, so the last candidate, `from - 1`, is a
-    // character boundary. Searching from it again costs one comparison.
-    let start = from - 1;
+    (at..=last).find(|&i| bytes[i] == first && bytes[i + span] == last_byte && middle_matches(i))
+}
+
+/// Hands the search to `str::find` from `start`, a position holding the
+/// separator's first byte. That byte begins a character, so `start` is a
+/// character boundary.
+#[cold]
+fn find_from(haystack: &str, needle: &str, start: usize) -> Option<usize> {
     haystack[start..].find(needle).map(|offset| start + offset)
 }
 
