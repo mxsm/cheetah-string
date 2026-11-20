@@ -38,10 +38,14 @@
 //! experiment for controlled benchmarking only. The deprecated `simd` feature
 //! remains a 3.x compatibility alias.
 //!
-//! Substring search picks its backend by length: short needles on text that
-//! spans a 16-byte block use the standard library's SIMD `contains`;
-//! `find()` uses `memchr::memmem` below 24 and from 128 bytes. Use
-//! [`CheetahFinder`] to search for one needle repeatedly.
+//! Substring search picks its backend by haystack and needle length, with
+//! thresholds measured on x86_64 and aarch64: short needles on text that
+//! spans a 16-byte block plus the needle use the standard library's SIMD
+//! `contains`; `find()` uses `str::find` only for text under 64 bytes that is
+//! at least `16 + 3 * needle` long, and `rfind()` uses `str::rfind` once the
+//! text is at least `24 + 2 * needle` long; other searches use
+//! `memchr::memmem`. A needle at least as long as the text is answered by one
+//! comparison. Use [`CheetahFinder`] to search for one needle repeatedly.
 //!
 //! # Retired experimental features
 //!
