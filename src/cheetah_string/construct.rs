@@ -22,6 +22,14 @@ impl CheetahString {
         CheetahString::default()
     }
 
+    /// Wraps an inline value built elsewhere in the crate.
+    #[inline]
+    pub(crate) fn from_inline(inline: InlineStr) -> Self {
+        CheetahString {
+            inner: InnerString::Inline(inline),
+        }
+    }
+
     /// Creates a string that borrows a static string slice without allocation.
     ///
     /// Explicit static construction takes precedence over inline storage,

@@ -384,3 +384,36 @@ fn formatting_short_values_does_not_allocate() {
     assert!(count >= 1, "long formatted values need shared storage");
     assert_eq!(long, "%RETRY%order-consumer-group@4");
 }
+
+#[test]
+fn building_a_short_key_does_not_allocate() {
+    use cheetah_string::CheetahBuilder;
+
+    let (topic, group) = ("orders", "group-a");
+    let (count, bytes, key) = measure(|| {
+        let mut builder = CheetahBuilder::with_capacity(black_box(topic).len() + 1 + group.len());
+        builder.push_str(black_box(topic));
+        builder.push('@');
+        builder.push_str(black_box(group));
+        builder.finish()
+    });
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "a short key is built and frozen inline"
+    );
+    assert_eq!(key, "orders@group-a");
+
+    let (count, _, spilled) = measure(|| {
+        let mut builder = CheetahBuilder::new();
+        builder.push_str(black_box("%RETRY%order-consumer-group"));
+        builder.push('@');
+        builder.push_str(black_box("broker-a"));
+        builder.finish()
+    });
+    assert_eq!(
+        count, 2,
+        "a spilled builder allocates its buffer once and the Arc once"
+    );
+    assert_eq!(spilled, "%RETRY%order-consumer-group@broker-a");
+}

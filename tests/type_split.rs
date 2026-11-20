@@ -75,3 +75,43 @@ fn v2_split_entry_preserves_concrete_iterator_capabilities() {
     assert_eq!(value.split(',').rev().collect::<Vec<_>>(), vec!["a::b::c"]);
     assert_eq!(value.split("::").collect::<Vec<_>>(), vec!["a", "b", "c"]);
 }
+
+#[test]
+fn builder_keeps_short_contents_inline_and_spills_on_growth() {
+    use std::fmt::Write;
+
+    let mut builder = CheetahBuilder::new();
+    assert_eq!(builder.capacity(), 23);
+    builder.push_str("orders");
+    builder.push('@');
+    write!(builder, "group-{}", 7).unwrap();
+    assert_eq!(builder.as_str(), "orders@group-7");
+    assert_eq!(builder.len(), 14);
+    assert_eq!(builder.capacity(), 23);
+
+    builder.push_str("-and-a-long-tail-\u{1f980}");
+    assert_eq!(builder.as_str(), "orders@group-7-and-a-long-tail-\u{1f980}");
+    assert!(builder.capacity() >= builder.len());
+    let long = builder.finish();
+    assert_eq!(long, "orders@group-7-and-a-long-tail-\u{1f980}");
+
+    let mut builder = CheetahBuilder::with_capacity(8);
+    builder.extend(['a', '\u{e9}', 'b']);
+    builder.extend(["-x", "-y"]);
+    assert_eq!(builder.as_str(), "a\u{e9}b-x-y");
+    builder.clear();
+    assert!(builder.is_empty());
+    builder.reserve(64);
+    assert!(builder.capacity() >= 64);
+    builder.push_str("after-reserve");
+    assert_eq!(builder.clone().into_string(), "after-reserve");
+    assert!(format!("{builder:?}").contains("after-reserve"));
+
+    let mut builder = CheetahBuilder::with_capacity(100);
+    assert!(builder.capacity() >= 100);
+    builder.push_str("heap");
+    builder.clear();
+    assert!(builder.capacity() >= 100);
+    assert_eq!(CheetahBuilder::from("short").into_string(), "short");
+    assert_eq!(CheetahBuilder::default().finish(), "");
+}

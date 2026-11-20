@@ -28,6 +28,14 @@
   from 3.7 and 4.7 ns to 2.4 and 2.7 ns, and `starts_with`/`ends_with` from
   2.9-3.9 ns to 1.5-2.3 ns for 8- to 64-byte patterns. This is the effect the
   `experimental-simd` SSE2 loop had, in portable safe code.
+- `CheetahBuilder::new()` and `with_capacity(n)` for `n <= 23` keep their
+  contents inline until they outgrow 23 bytes, so building a short key and
+  calling `finish()` allocates nothing. A 14-byte `topic@group` key built
+  with an exact capacity fell from 33.9 ns to 8.9 ns, and from 83.5 ns to
+  8.7 ns when built from `new()`. `capacity()` reports 23 while the contents
+  are inline, and a larger `with_capacity` still allocates up front, so
+  `into_string()` keeps returning that buffer without copying. Builds that
+  start on the heap are about 5% slower because each push checks the state.
 - Inline decoding clamps the length instead of carrying a slice bounds check
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,
@@ -48,6 +56,7 @@
 
 ### Added
 
+- `CheetahBuilder` implements `fmt::Write`, so `write!` appends to it.
 - `cheetah_format!` and `CheetahString::from_fmt(format_args!(..))` format
   straight into a `CheetahString`: output of up to 23 bytes is written to
   inline storage without allocating, a literal with no arguments is borrowed
