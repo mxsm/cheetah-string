@@ -1,4 +1,5 @@
 import importlib.util
+import json
 import re
 import sys
 import unittest
@@ -64,6 +65,33 @@ class InstructionCountTests(unittest.TestCase):
         report = COUNTS.render(rows, 0.02, 2.0, "Base `a`, head `b`.")
         self.assertIn("**+10.0% regression**", report)
         self.assertIn("**1 regression(s):** find", report)
+
+    def test_only_harness_compile_errors_allow_a_head_only_report(self) -> None:
+        def message(target: str, level: str, rendered: str) -> str:
+            return json.dumps(
+                {
+                    "reason": "compiler-message",
+                    "target": {"kind": ["bin"], "name": target},
+                    "message": {"level": level, "message": rendered, "rendered": rendered},
+                }
+            )
+
+        harness_error = message("cheetah-icount", "error", "error[E0599]: no method `new_api`\n")
+        crate_error = message("cheetah_string", "error", "error[E0308]: mismatched types\n")
+        harness_warning = message("cheetah-icount", "warning", "warning: unused variable\n")
+        output = "\n".join(
+            [
+                "not json",
+                json.dumps({"reason": "build-finished", "success": False}),
+                crate_error,
+                harness_warning,
+                harness_error,
+            ]
+        )
+        self.assertEqual(COUNTS.harness_errors(output), ["error[E0599]: no method `new_api`\n"])
+        # A failure in the crate or a dependency is not a harness incompatibility.
+        self.assertEqual(COUNTS.harness_errors("\n".join([crate_error, harness_warning])), [])
+        self.assertEqual(COUNTS.harness_errors(""), [])
 
     def test_harness_lists_every_scenario_once(self) -> None:
         source = (ROOT / COUNTS.HARNESS).read_text(encoding="utf-8")

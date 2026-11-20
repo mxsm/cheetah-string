@@ -56,6 +56,9 @@ jobs:
     # re-run this job; it then reports the counts without failing.
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout pull request
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -77,6 +80,16 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends valgrind
 
       - name: Compare instruction counts
+        shell: bash
         env:
-          REPORT_ONLY: ${{ contains(github.event.pull_request.labels.*.name, 'accept-instruction-regression') && '--report-only' || '' }}
-        run: python head/scripts/instruction-counts.py --base base --head head --summary "$GITHUB_STEP_SUMMARY" $REPORT_ONLY
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Read the labels now: a re-run reuses the original event payload,
+          # whose label list predates any label added since.
+          labels=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json labels --jq '.labels[].name')
+          args=()
+          if grep -qx 'accept-instruction-regression' <<< "$labels"; then
+            args+=(--report-only)
+          fi
+          python head/scripts/instruction-counts.py --base base --head head --summary "$GITHUB_STEP_SUMMARY" "${args[@]}"

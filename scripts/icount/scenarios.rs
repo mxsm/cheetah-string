@@ -101,10 +101,15 @@ fn as_bytes_scan_64(iterations: u64) {
     let values: Vec<CheetahString> = (0..64)
         .map(|i| CheetahString::from(text(4 + (i * 7) % 60).as_str()))
         .collect();
+    // Read the first and last byte of each slice, so the pointer and length
+    // decoding both count and the byte loads cannot be optimised away.
     repeat(iterations, || {
         black_box(&values)
             .iter()
-            .map(|value| value.as_bytes().len())
+            .map(|value| {
+                let bytes = black_box(value.as_bytes());
+                bytes.len() + usize::from(bytes[0]) + usize::from(bytes[bytes.len() - 1])
+            })
             .sum::<usize>()
     });
 }

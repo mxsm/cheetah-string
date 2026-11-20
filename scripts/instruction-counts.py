@@ -7,6 +7,11 @@ iteration counts, and reports the instructions of one iteration:
 (count at --high - count at --low) / (--high - --low). Process start-up and
 scenario setup cancel out, so the numbers are exact and repeatable.
 
+Each side builds with its own Cargo.lock, so dependency updates in the
+pull request are measured too. If the head scenarios do not compile against
+base, because they use API that base lacks, only head is reported; any other
+build failure is an error.
+
 A scenario regresses when head runs more than --tolerance (relative) and
 more than --min-delta (absolute) instructions above base. The script exits
 with status 1 on any regression unless --report-only is given.
@@ -19,6 +24,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import shutil
 import subprocess
@@ -28,6 +34,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 HARNESS = Path("scripts") / "icount" / "scenarios.rs"
+HARNESS_TARGET = "cheetah-icount"
 IREFS = re.compile(r"I\s+refs:\s+([\d,]+)")
 
 MANIFEST = """\
@@ -46,6 +53,10 @@ debug = false
 
 [workspace]
 """
+
+
+class HarnessIncompatible(Exception):
+    """The head scenarios do not compile against a checkout's crate."""
 
 
 @dataclass(frozen=True)
@@ -123,22 +134,63 @@ def render(rows: list[Row], tolerance: float, min_delta: float, note: str) -> st
     return "\n".join(lines) + "\n"
 
 
-def build(crate: Path, harness: Path, lockfile: Path | None, work: Path) -> Path:
-    """Builds the harness against `crate` and returns the binary path."""
+def harness_errors(cargo_json: str) -> list[str]:
+    """Returns the compiler errors reported in the harness itself.
+
+    `cargo_json` is the output of `cargo build --message-format=json`. Errors
+    in the crate or its dependencies are not harness errors.
+    """
+    errors = []
+    for line in cargo_json.splitlines():
+        try:
+            message = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(message, dict) or message.get("reason") != "compiler-message":
+            continue
+        if message.get("target", {}).get("name") != HARNESS_TARGET:
+            continue
+        diagnostic = message.get("message", {})
+        if diagnostic.get("level") == "error":
+            errors.append(diagnostic.get("rendered") or diagnostic.get("message", ""))
+    return errors
+
+
+def build(crate: Path, harness: Path, work: Path) -> Path:
+    """Builds the harness against `crate` and returns the binary path.
+
+    Raises `HarnessIncompatible` when only the harness fails to compile and
+    `subprocess.CalledProcessError` for any other build failure.
+    """
     (work / "src").mkdir(parents=True)
     (work / "Cargo.toml").write_text(
         MANIFEST.format(crate=crate.resolve().as_posix()), encoding="utf-8"
     )
     shutil.copyfile(harness, work / "src" / "main.rs")
-    if lockfile is not None and lockfile.is_file():
-        # Start from head's lockfile so both builds resolve the same versions.
+    lockfile = crate / "Cargo.lock"
+    if lockfile.is_file():
+        # Each side resolves with its own lockfile, so a dependency update in
+        # the pull request shows up in the comparison.
         shutil.copyfile(lockfile, work / "Cargo.lock")
-    subprocess.run(
-        ["cargo", "build", "--release", "--quiet", "--manifest-path", str(work / "Cargo.toml")],
-        check=True,
-    )
+    command = [
+        "cargo",
+        "build",
+        "--release",
+        "--message-format=json",
+        "--manifest-path",
+        str(work / "Cargo.toml"),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
+        errors = harness_errors(result.stdout)
+        for error in errors:
+            sys.stderr.write(error)
+        if errors:
+            raise HarnessIncompatible(f"the harness does not compile against {crate}")
+        raise subprocess.CalledProcessError(result.returncode, command, result.stdout, result.stderr)
     suffix = ".exe" if sys.platform == "win32" else ""
-    return work / "target" / "release" / f"cheetah-icount{suffix}"
+    return work / "target" / "release" / f"{HARNESS_TARGET}{suffix}"
 
 
 def count(binary: Path, scenario: str, iterations: int) -> int:
@@ -190,19 +242,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     harness = args.head / HARNESS
-    lockfile = args.head / "Cargo.lock"
     with tempfile.TemporaryDirectory() as temp:
         temp = Path(temp)
-        head_binary = build(args.head, harness, lockfile, temp / "head")
+        head_binary = build(args.head, harness, temp / "head")
         scenarios = subprocess.run(
             [str(head_binary), "--list"], check=True, capture_output=True, text=True
         ).stdout.split()
         note = f"Base `{revision(args.base)}`, head `{revision(args.head)}`."
         try:
-            base_binary = build(args.base, harness, lockfile, temp / "base")
-        except subprocess.CalledProcessError:
+            base_binary = build(args.base, harness, temp / "base")
+        except HarnessIncompatible:
             base_binary = None
-            note += " The scenarios do not build against base, so only head is shown."
+            note += " The head scenarios use API that base lacks, so only head is shown."
         head = measure(head_binary, scenarios, args.low, args.high)
         base = None if base_binary is None else measure(base_binary, scenarios, args.low, args.high)
 
