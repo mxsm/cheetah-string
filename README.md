@@ -10,7 +10,7 @@ systems. It stores short text inline, keeps static text allocation-free, and
 shares long dynamic text through `Arc<str>`. The same value contract works with
 `std` and `no_std + alloc`.
 
-Version `3.1.0` is the supported 3.x release line for the immutable
+Version `3.2.0` is the supported 3.x release line for the immutable
 architecture.
 
 ## Design contract
@@ -47,7 +47,7 @@ Add the crate to your project:
 
 ```toml
 [dependencies]
-cheetah-string = "3.1.0"
+cheetah-string = "3.2.0"
 ```
 
 With optional integrations:
@@ -55,7 +55,7 @@ With optional integrations:
 ```toml
 [dependencies]
 cheetah-string = {
-  version = "3.1.0",
+  version = "3.2.0",
   features = ["serde", "bytes"]
 }
 ```
