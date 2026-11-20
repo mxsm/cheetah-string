@@ -212,14 +212,9 @@ fn print_table(op: Op, case: Case, kind: Kind) {
         .iter()
         .map(|&n| absent_needle(n, kind))
         .collect();
-    println!(
-        "
-## {}, {}, {}
-",
-        op.name(),
-        case.name(),
-        kind.name()
-    );
+    println!();
+    println!("## {}, {}, {}", op.name(), case.name(), kind.name());
+    println!();
     let header: String = NEEDLE_LENS.iter().map(|n| format!(" n = {n} |")).collect();
     println!("| haystack |{header}");
     println!("| ---: |{}", " --- |".repeat(NEEDLE_LENS.len()));
@@ -241,15 +236,20 @@ fn print_table(op: Op, case: Case, kind: Kind) {
 
 fn main() {
     println!(
-        "# Search strategy timings ({}-{})
-",
+        "# Search strategy timings ({}-{})",
         std::env::consts::ARCH,
         std::env::consts::OS
     );
+    println!();
     println!(
-        "Median ns per call over {SAMPLES} samples. Each cell is `std / memmem / CheetahString`;          the faster of std and memmem is bold, and `!` marks a CheetahString time more than          {:.0}% above it. A miss searches for a needle that is absent from the haystack; a late          hit places the needle where the scan ends. A common-byte needle uses only bytes that          occur in the haystack; a rare-byte needle contains one byte that does not.",
+        "Median ns per call over {SAMPLES} samples. Each cell is `std / memmem / CheetahString`."
+    );
+    println!(
+        "The faster of std and memmem is bold, and `!` marks a CheetahString time more than {:.0}% above it.",
         (FLAG_RATIO - 1.0) * 100.0
     );
+    println!("A miss searches for a needle that is absent from the haystack; a late hit places the needle where the scan ends.");
+    println!("A common-byte needle uses only bytes that occur in the haystack; a rare-byte needle contains one byte that does not.");
 
     for op in [Op::Contains, Op::Find, Op::Rfind] {
         for case in [Case::Miss, Case::LateHit] {

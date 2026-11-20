@@ -1,11 +1,19 @@
-// Thresholds measured on x86_64 (i7-11700K, rustc 1.99) with 4-byte needles
-// against haystacks of 20 B to 16 KiB, both hits and misses.
+// Thresholds measured with `benches/search_thresholds.rs` on x86_64 (an
+// i7-11700K and the `ubuntu-latest` runner) and aarch64 (the
+// `ubuntu-24.04-arm` runner): needles of 2 to 32 bytes made of common or rare
+// haystack bytes, haystacks of 8 B to 4 KiB, hits and misses. The
+// `Search thresholds` workflow reruns it on both targets when this file
+// changes.
 //
-// `str::contains` has an SSE2 fast path for needles of 2..=32 bytes once the
-// haystack holds one 16-byte block plus the needle; it beat a one-shot
-// `memmem::find` at every such length. Below that size std falls back to a
-// byte-window scan, and above 32-byte needles it builds a Two-Way searcher,
-// so memmem stays the better choice there.
+// A needle at least as long as the haystack can only match the whole
+// haystack, so one comparison answers it. std does the same for `contains`,
+// while `memmem` would still hash the single candidate position.
+//
+// `str::contains` has a SIMD fast path for needles of 2..=32 bytes once the
+// haystack holds one 16-byte block plus the needle, and it beat a one-shot
+// `memmem::find` at almost every such length. Below that size std falls back
+// to a byte-window scan, and above 32-byte needles it builds a Two-Way
+// searcher, so memmem stays the better choice there.
 //
 // std only has that fast path on these targets; elsewhere it always builds a
 // Two-Way searcher, so memmem remains the better default.
@@ -17,18 +25,50 @@ const STD_HAS_SIMD_CONTAINS: bool = cfg!(any(
 const STD_CONTAINS_MAX_NEEDLE: usize = 32;
 const STD_CONTAINS_BLOCK: usize = 16;
 
-// A one-shot `memmem` search pays roughly 15-20 ns to build its searcher,
-// while `str::find`/`str::rfind` build a Two-Way searcher of their own. memmem
-// won on haystacks shorter than 24 bytes (every inline value), std won from
-// 24 to about 128 bytes, and memmem won again for `find` beyond that.
-const STD_SEARCH_MIN_HAYSTACK: usize = 24;
-const MEMMEM_FIND_MIN_HAYSTACK: usize = 128;
+// One-shot `memmem::find` and `memmem::rfind` use Rabin-Karp below 64 bytes,
+// whose cost grows with the number of candidate positions, while `str::find`
+// and `str::rfind` build a Two-Way searcher whose setup grows with the needle.
+// std therefore wins only when the haystack is long relative to the needle:
+//
+// - `find` uses std when `16 + 3 * needle <= haystack < 64`. From 64 bytes
+//   memmem's SIMD prefilter won at every needle length.
+// - `rfind` uses std when `haystack >= 24 + 2 * needle`. `memmem::rfind` has
+//   no prefilter, so std stays ahead on long haystacks.
+//
+// On both targets these rules kept every measured case within 1.6x of the
+// faster strategy and the geometric mean within 3% of it. The fixed cutoffs
+// they replace, std for `find` from 24 to 127 bytes and for `rfind` from 24
+// bytes, were up to 3.9x slower with 8 to 32-byte needles.
+const STD_FIND_BASE: usize = 16;
+const STD_FIND_PER_NEEDLE_BYTE: usize = 3;
+const MEMMEM_FIND_MIN_HAYSTACK: usize = 64;
+const STD_RFIND_BASE: usize = 24;
+const STD_RFIND_PER_NEEDLE_BYTE: usize = 2;
+
+#[inline]
+fn std_find_is_faster(haystack: usize, needle: usize) -> bool {
+    haystack < MEMMEM_FIND_MIN_HAYSTACK
+        && haystack >= STD_FIND_BASE.saturating_add(needle.saturating_mul(STD_FIND_PER_NEEDLE_BYTE))
+}
+
+#[inline]
+fn std_rfind_is_faster(haystack: usize, needle: usize) -> bool {
+    haystack >= STD_RFIND_BASE.saturating_add(needle.saturating_mul(STD_RFIND_PER_NEEDLE_BYTE))
+}
+
+/// Answers a search whose needle is at least as long as the haystack: only
+/// an identical haystack contains it, at offset 0.
+#[inline]
+fn whole_match(haystack: &str, needle: &str) -> bool {
+    crate::compare::bytes_eq(haystack.as_bytes(), needle.as_bytes())
+}
 
 #[inline]
 pub(crate) fn contains_str(haystack: &str, needle: &str) -> bool {
     match needle.len() {
         0 => true,
         1 => memchr::memchr(needle.as_bytes()[0], haystack.as_bytes()).is_some(),
+        n if n >= haystack.len() => whole_match(haystack, needle),
         n if STD_HAS_SIMD_CONTAINS
             && n <= STD_CONTAINS_MAX_NEEDLE
             && haystack.len() >= STD_CONTAINS_BLOCK + n - 1 =>
@@ -61,24 +101,20 @@ pub(crate) fn find_str(haystack: &str, needle: &str) -> Option<usize> {
     match needle.len() {
         0 => Some(0),
         1 => memchr::memchr(needle.as_bytes()[0], haystack.as_bytes()),
-        _ if (STD_SEARCH_MIN_HAYSTACK..MEMMEM_FIND_MIN_HAYSTACK).contains(&haystack.len()) => {
-            std_find(haystack, needle)
-        }
+        n if n >= haystack.len() => whole_match(haystack, needle).then_some(0),
+        n if std_find_is_faster(haystack.len(), n) => std_find(haystack, needle),
         _ => memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()),
     }
 }
 
-// `memmem::rfind` has no prefilter; from 24 bytes up `str::rfind` matched or
-// beat it at every measured length.
 #[inline]
 pub(crate) fn rfind_str(haystack: &str, needle: &str) -> Option<usize> {
     match needle.len() {
         0 => Some(haystack.len()),
         1 => memchr::memrchr(needle.as_bytes()[0], haystack.as_bytes()),
-        _ if haystack.len() < STD_SEARCH_MIN_HAYSTACK => {
-            memchr::memmem::rfind(haystack.as_bytes(), needle.as_bytes())
-        }
-        _ => std_rfind(haystack, needle),
+        n if n >= haystack.len() => whole_match(haystack, needle).then_some(0),
+        n if std_rfind_is_faster(haystack.len(), n) => std_rfind(haystack, needle),
+        _ => memchr::memmem::rfind(haystack.as_bytes(), needle.as_bytes()),
     }
 }
 
