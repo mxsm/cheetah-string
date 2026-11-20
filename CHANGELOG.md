@@ -41,6 +41,14 @@
   the way, instead of scanning it twice and copying it piece by piece. On an
   i7-11700K a 50-byte value fell from 99 ns to 52 ns, a 14-byte inline value
   from 37 ns to 15 ns, and a 1 KiB value from 1,062 ns to 78 ns.
+- `split_str` with a separator of 2 to 32 bytes finds candidates with
+  `memchr` on the separator's first byte and checks the rest without a
+  `memcmp` call, instead of building a Two-Way searcher on every call. After
+  two candidates whose rest does not match, it hands the remaining text to
+  `str::find`, so text full of the first byte costs about two extra `memchr`
+  calls. On an i7-11700K splitting `"a::b::c::d::e"` fell from 37 ns to
+  27 ns, a 200-byte value without the separator from 67 ns to 11 ns, and an
+  8-byte separator from 48 ns to 17 ns.
 - Inline decoding clamps the length instead of carrying a slice bounds check
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,

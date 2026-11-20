@@ -147,6 +147,12 @@ fn split_count(iterations: u64) {
     repeat(iterations, || black_box(&value).split_str("::").count());
 }
 
+fn split_dense_no_match(iterations: u64) {
+    // The separator's first byte is everywhere but the separator never occurs.
+    let value = CheetahString::from("a:".repeat(30).as_str());
+    repeat(iterations, || black_box(&value).split_str("::").count());
+}
+
 fn concat_inline(iterations: u64) {
     repeat(iterations, || {
         CheetahString::concat(&[black_box("orders"), "@", black_box("group-a")])
@@ -234,6 +240,7 @@ const SCENARIOS: &[(&str, fn(u64))] = &[
     ("rfind/48B_miss", rfind_48b),
     ("find/1KiB_miss", find_1k),
     ("split_str/count_5_parts", split_count),
+    ("split_str/2B_dense_no_match", split_dense_no_match),
     ("concat/inline_14B", concat_inline),
     ("concat/shared_50B", concat_shared),
     ("builder/inline_14B", builder_inline),

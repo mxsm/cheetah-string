@@ -116,6 +116,53 @@ fn search_matches_str_when_the_needle_is_not_shorter_than_the_haystack() {
 }
 
 #[test]
+fn split_str_matches_str_split() {
+    let separators = [
+        "::",
+        ":::",
+        "aa",
+        "aaa",
+        "--",
+        "pay|",
+        "q@z!",
+        "@consumer",
+        "\u{df}\u{df}",
+        "\u{1f980}x",
+        "x\u{1f980}",
+        "TopicTest@consumer-group;tag=pay|",
+        "exactly-thirty-two-bytes-long!!!",
+        "a separator that is longer than thirty-two bytes",
+    ];
+    let mut texts = haystacks();
+    texts.extend(
+        [
+            "",
+            "::",
+            ":::",
+            "::::",
+            ":::::",
+            "a:b:c:d:e:f:g:h:i:j::k",
+            "a::b::c::d::e",
+            "::leading and trailing::",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "x\u{1f980}\u{1f980}x\u{1f980}xx\u{1f980}",
+            "\u{df}\u{df}\u{df}-\u{df}\u{df}",
+        ]
+        .map(String::from),
+    );
+    texts.push("a:".repeat(100));
+    texts.push(format!("{}::tail", "a:".repeat(30)));
+    for text in &texts {
+        let value = CheetahString::from(text.as_str());
+        for separator in separators {
+            let expected: Vec<&str> = text.split(separator).collect();
+            let actual: Vec<&str> = value.split_str(separator).collect();
+            assert_eq!(actual, expected, "split_str {text:?} {separator:?}");
+        }
+    }
+}
+
+#[test]
 fn transforms_match_str() {
     for hay in haystacks() {
         let value = CheetahString::from(hay.as_str());

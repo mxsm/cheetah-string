@@ -132,18 +132,89 @@ pub struct SplitStr<'a, 'p>(SplitStrInner<'a, 'p>);
 enum SplitStrInner<'a, 'p> {
     Str(str::Split<'a, &'p str>),
     Char(str::Split<'a, char>),
+    Short(ShortSplit<'a, 'p>),
 }
+
+/// Separators of 2 up to this many bytes are found with `memchr` on their
+/// first byte and a check of the rest, which skips building the Two-Way
+/// searcher that `str::split` sets up on every call.
+const SHORT_SEPARATOR_MAX: usize = 32;
+
+/// Candidates whose first byte matches but whose rest does not, tolerated in
+/// one search before it hands the remaining text to `str::find`. Each costs a
+/// `memchr` call, so text where the separator's first byte is common but the
+/// separator is not would otherwise cost a call every few bytes.
+const SHORT_SEPARATOR_FALSE_CANDIDATES: usize = 2;
 
 impl<'a, 'p> SplitStr<'a, 'p> {
     #[inline]
     pub(super) fn new(value: &'a str, pattern: &'p str) -> Self {
         let inner = match single_char_pattern(pattern) {
             Some(ch) => SplitStrInner::Char(value.split(ch)),
+            None if (2..=SHORT_SEPARATOR_MAX).contains(&pattern.len()) => {
+                SplitStrInner::Short(ShortSplit {
+                    rest: Some(value),
+                    separator: pattern,
+                })
+            }
             None => SplitStrInner::Str(value.split(pattern)),
         };
 
         Self(inner)
     }
+}
+
+/// Forward split by a separator of 2 to [`SHORT_SEPARATOR_MAX`] bytes that
+/// yields the same pieces as `str::split`: matches are leftmost and do not
+/// overlap. A match of valid UTF-8 inside valid UTF-8 starts and ends on
+/// character boundaries, so the slices never split a character.
+#[derive(Clone, Debug)]
+struct ShortSplit<'a, 'p> {
+    /// The text after the last separator, or `None` once it was yielded.
+    rest: Option<&'a str>,
+    separator: &'p str,
+}
+
+impl<'a> ShortSplit<'a, '_> {
+    #[inline]
+    fn next(&mut self) -> Option<&'a str> {
+        let rest = self.rest?;
+        match find_short(rest, self.separator) {
+            Some(at) => {
+                self.rest = Some(&rest[at + self.separator.len()..]);
+                Some(&rest[..at])
+            }
+            None => {
+                self.rest = None;
+                Some(rest)
+            }
+        }
+    }
+}
+
+/// Returns the first position of `needle`, of at least two bytes, in
+/// `haystack`.
+#[inline]
+fn find_short(haystack: &str, needle: &str) -> Option<usize> {
+    let bytes = haystack.as_bytes();
+    let (&first, tail) = needle.as_bytes().split_first()?;
+    // The last position where a whole separator still fits.
+    let last = bytes.len().checked_sub(needle.len())?;
+    let mut from = 0;
+    for _ in 0..SHORT_SEPARATOR_FALSE_CANDIDATES {
+        let at = from + memchr::memchr(first, &bytes[from..=last])?;
+        if crate::compare::bytes_eq(&bytes[at + 1..at + needle.len()], tail) {
+            return Some(at);
+        }
+        from = at + 1;
+        if from > last {
+            return None;
+        }
+    }
+    // `first` begins a character, so the last candidate, `from - 1`, is a
+    // character boundary. Searching from it again costs one comparison.
+    let start = from - 1;
+    haystack[start..].find(needle).map(|offset| start + offset)
 }
 
 #[inline]
@@ -166,9 +237,11 @@ impl<'a, 'p> Iterator for SplitStr<'a, 'p> {
         match &mut self.0 {
             SplitStrInner::Str(iter) => iter.next(),
             SplitStrInner::Char(iter) => iter.next(),
+            SplitStrInner::Short(iter) => iter.next(),
         }
     }
 }
 
-// Both inner `str::Split` iterators are fused.
+// The inner `str::Split` iterators are fused, and `ShortSplit` keeps
+// returning `None` once its remainder was yielded.
 impl core::iter::FusedIterator for SplitStr<'_, '_> {}
