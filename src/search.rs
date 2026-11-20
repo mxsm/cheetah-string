@@ -261,7 +261,9 @@ fn contains_without_std_simd(haystack: &str, needle: &str) -> bool {
         return match find_short(haystack, needle) {
             ShortSearch::Found(_) => true,
             ShortSearch::Missing => false,
-            ShortSearch::TooManyFalseCandidates(from) => haystack[from..].contains(needle),
+            // Through the std wrapper, so `str::contains` keeps one call site
+            // and stays inlined into it.
+            ShortSearch::TooManyFalseCandidates(from) => std_contains(&haystack[from..], needle),
         };
     }
     memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()).is_some()
@@ -292,7 +294,7 @@ fn rfind_screened(haystack: &str, needle: &str) -> Option<usize> {
             while !haystack.is_char_boundary(end) {
                 end += 1;
             }
-            haystack[..end].rfind(needle)
+            std_rfind(&haystack[..end], needle)
         }
     }
 }
