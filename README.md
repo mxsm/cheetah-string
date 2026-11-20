@@ -128,14 +128,14 @@ value.push_str("@group-a");
 Equality, prefix, and suffix checks compare up to 64 bytes with overlapping
 fixed-size loads instead of calling `memcmp`, and use `memcmp` beyond that.
 Substring search picks its backend by haystack and needle length, with
-thresholds measured on x86_64 and aarch64: `contains` uses the standard
-library's SIMD search for 2- to 32-byte needles once the text spans a
-16-byte block plus the needle. `find` uses std only for haystacks under 64
-bytes that are at least `16 + 3 * needle` long, and `rfind` uses std once
-the haystack is at least `24 + 2 * needle` long; otherwise both use
-`memchr::memmem`. Single-byte needles use `memchr`, and a needle at least as
-long as the text is answered by one comparison. Use `CheetahFinder` to
-search for one needle repeatedly.
+thresholds measured on x86_64 and aarch64. Needles of 2 to 32 bytes in text
+under 256 bytes use a screened search with no setup: 16 positions at a time
+are checked against the needle's first and last bytes, and only positions
+that pass compare the middle. `contains` keeps the standard library's SIMD
+search once the text spans a 16-byte block plus the needle. Longer text uses
+`memchr::memmem` for `find` and `str::rfind` for `rfind`. Single-byte
+needles use `memchr`, and a needle at least as long as the text is answered
+by one comparison. Use `CheetahFinder` to search for one needle repeatedly.
 
 Iterator capabilities are explicit:
 

@@ -94,9 +94,9 @@ impl CheetahString {
     /// Returns `true` if the string contains the given pattern.
     ///
     /// Needles of 2 to 32 bytes on text that spans a 16-byte block plus the
-    /// needle use the standard library's SIMD search, and a needle at least as
-    /// long as the text is answered by one comparison; other cases use
-    /// `memchr`/`memmem`.
+    /// needle use the standard library's SIMD search, and on shorter text a
+    /// screened search with no setup. A needle at least as long as the text is
+    /// answered by one comparison; other cases use `memchr`/`memmem`.
     ///
     /// # Examples
     ///
@@ -136,9 +136,9 @@ impl CheetahString {
 
     /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
     ///
-    /// Text under 64 bytes that is at least `16 + 3 * needle` bytes long uses
-    /// `str::find`; other text uses `memchr::memmem`, and a needle at least as
-    /// long as the text is answered by one comparison. Use
+    /// Needles of 2 to 32 bytes in text under 256 bytes use a screened search
+    /// with no setup; other text uses `memchr::memmem`, and a needle at least
+    /// as long as the text is answered by one comparison. Use
     /// [`CheetahString::find_char`] for a `char` pattern and
     /// [`crate::CheetahFinder`] to search for the same needle repeatedly.
     ///
@@ -159,9 +159,11 @@ impl CheetahString {
 
     /// Returns the byte index of the last occurrence of the pattern, or `None` if not found.
     ///
-    /// Text at least `24 + 2 * needle` bytes long uses `str::rfind`; shorter
-    /// text uses `memchr::memmem`, and a needle at least as long as the text is
-    /// answered by one comparison.
+    /// Needles of 2 to 32 bytes in text under 256 bytes use a screened search
+    /// with no setup, scanning from the end. Other text at least
+    /// `24 + 2 * needle` bytes long uses `str::rfind` and shorter text
+    /// `memchr::memmem`; a needle at least as long as the text is answered by
+    /// one comparison.
     ///
     /// # Examples
     ///

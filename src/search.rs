@@ -9,54 +9,181 @@
 // haystack, so one comparison answers it. std does the same for `contains`,
 // while `memmem` would still hash the single candidate position.
 //
+// Needles of 2 to 32 bytes on haystacks shorter than 256 bytes use the
+// screened search below, which needs no setup: it beat one-shot `memmem`
+// (Rabin-Karp below 64 bytes) and std's Two-Way searchers there. From 256
+// bytes the SIMD scans of `memmem` and std win.
+//
 // `str::contains` has a SIMD fast path for needles of 2..=32 bytes once the
-// haystack holds one 16-byte block plus the needle, and it beat a one-shot
-// `memmem::find` at almost every such length. Below that size std falls back
-// to a byte-window scan, and above 32-byte needles it builds a Two-Way
-// searcher, so memmem stays the better choice there.
+// haystack holds one 16-byte block plus the needle, and it beat the screen
+// there, so `contains` keeps it and screens only shorter haystacks. Above
+// 32-byte needles std builds a Two-Way searcher, so memmem stays the better
+// choice there.
 //
 // std only has that fast path on these targets; elsewhere it always builds a
-// Two-Way searcher, so memmem remains the better default.
+// Two-Way searcher, so `contains` screens up to 256 bytes like `find`.
 const STD_HAS_SIMD_CONTAINS: bool = cfg!(any(
     all(target_arch = "x86_64", target_feature = "sse2"),
     all(target_arch = "loongarch64", target_feature = "lsx"),
     all(target_arch = "aarch64", target_feature = "neon")
 ));
-const STD_CONTAINS_MAX_NEEDLE: usize = 32;
 const STD_CONTAINS_BLOCK: usize = 16;
 
-// One-shot `memmem::find` and `memmem::rfind` use Rabin-Karp below 64 bytes,
-// whose cost grows with the number of candidate positions, while `str::find`
-// and `str::rfind` build a Two-Way searcher whose setup grows with the needle.
-// std therefore wins only when the haystack is long relative to the needle:
-//
-// - `find` uses std when `16 + 3 * needle <= haystack < 64`. From 64 bytes
-//   memmem's SIMD prefilter won at every needle length on the i7 and on
-//   aarch64. The `ubuntu-latest` runner favoured std up to 128 bytes for 4 to
-//   16-byte needles, but moving the cutoff there cost more elsewhere.
-// - `rfind` uses std when `haystack >= 24 + 2 * needle`. `memmem::rfind` has
-//   no prefilter, so std stays ahead on long haystacks.
-//
-// On every machine these rules stayed within 4% of the faster strategy on
-// geometric mean and within 1.8x in the worst case. The fixed cutoffs they
-// replace, std for `find` from 24 to 127 bytes and for `rfind` from 24 bytes,
-// were 9-17% slower on geometric mean and up to 4.3x slower with 8 to
-// 32-byte needles.
-const STD_FIND_BASE: usize = 16;
-const STD_FIND_PER_NEEDLE_BYTE: usize = 3;
-const MEMMEM_FIND_MIN_HAYSTACK: usize = 64;
+// `memmem::rfind` has no prefilter, so outside the screen `rfind` uses
+// `str::rfind` once `haystack >= 24 + 2 * needle`: a one-shot `memmem::rfind`
+// uses Rabin-Karp below 64 bytes, whose cost grows with the candidate
+// positions, while std's setup grows with the needle.
 const STD_RFIND_BASE: usize = 24;
 const STD_RFIND_PER_NEEDLE_BYTE: usize = 2;
 
 #[inline]
-fn std_find_is_faster(haystack: usize, needle: usize) -> bool {
-    haystack < MEMMEM_FIND_MIN_HAYSTACK
-        && haystack >= STD_FIND_BASE.saturating_add(needle.saturating_mul(STD_FIND_PER_NEEDLE_BYTE))
-}
-
-#[inline]
 fn std_rfind_is_faster(haystack: usize, needle: usize) -> bool {
     haystack >= STD_RFIND_BASE.saturating_add(needle.saturating_mul(STD_RFIND_PER_NEEDLE_BYTE))
+}
+
+/// Needles of 2 up to this many bytes are found by [`find_short`] and
+/// [`rfind_short`] in short haystacks, and by `split_str` at any length. The
+/// middle of a candidate is checked with `compare::bytes_eq`, which handles up
+/// to 64 bytes without a `memcmp` call.
+pub(crate) const SHORT_NEEDLE_MAX: usize = 32;
+
+/// Candidate positions screened together by [`find_short`].
+const SCREEN_BLOCK: usize = 16;
+
+/// `find`, `rfind`, and `contains` without std's SIMD fast path screen only
+/// haystacks shorter than this.
+const SCREENED_MAX_HAYSTACK: usize = 256;
+
+/// Positions that pass the screen but not the full comparison, tolerated in
+/// one search before the caller hands the rest of the text to a Two-Way
+/// searcher. Ordinary text rarely has any; text built to defeat the screen pays
+/// for at most this many.
+const SHORT_NEEDLE_FALSE_CANDIDATES: usize = 4;
+
+/// The outcome of [`find_short`].
+pub(crate) enum ShortSearch {
+    /// The first match starts here.
+    Found(usize),
+    /// The text holds no match.
+    Missing,
+    /// More than [`SHORT_NEEDLE_FALSE_CANDIDATES`] positions passed the
+    /// screen without matching, the last at this position; a Two-Way searcher
+    /// suits this text better. Nothing before the position matches, and the
+    /// position holds the needle's first byte, so it is a character boundary.
+    TooManyFalseCandidates(usize),
+}
+
+/// Returns the first position of `needle`, of 2 to [`SHORT_NEEDLE_MAX`]
+/// bytes, in `haystack`.
+///
+/// Positions are screened [`SCREEN_BLOCK`] at a time on the needle's first and
+/// last bytes, in a fixed-size loop the compiler turns into vector compares,
+/// and only positions that pass compare the middle. Text that merely repeats
+/// the separator's first byte, or its leading bytes, produces no candidates.
+#[inline]
+pub(crate) fn find_short(haystack: &str, needle: &str) -> ShortSearch {
+    let bytes = haystack.as_bytes();
+    let pattern = needle.as_bytes();
+    let span = pattern.len() - 1;
+    let (first, last_byte, middle) = (pattern[0], pattern[span], &pattern[1..span]);
+    // The last position where a whole separator still fits.
+    let Some(last) = bytes.len().checked_sub(pattern.len()) else {
+        return ShortSearch::Missing;
+    };
+    let middle_matches = |at: usize| crate::compare::bytes_eq(&bytes[at + 1..at + span], middle);
+    let mut false_candidates = 0;
+
+    let mut at = 0;
+    // Every position of a block, plus `span`, stays inside the text while
+    // `at + SCREEN_BLOCK <= last + 1`.
+    while at + SCREEN_BLOCK <= last + 1 {
+        let heads: &[u8; SCREEN_BLOCK] = bytes[at..at + SCREEN_BLOCK]
+            .try_into()
+            .expect("a block of heads");
+        let tails: &[u8; SCREEN_BLOCK] = bytes[at + span..at + span + SCREEN_BLOCK]
+            .try_into()
+            .expect("a block of tails");
+        let mut hits = 0u32;
+        for i in 0..SCREEN_BLOCK {
+            hits |= u32::from((heads[i] == first) & (tails[i] == last_byte)) << i;
+        }
+        while hits != 0 {
+            let candidate = at + hits.trailing_zeros() as usize;
+            if middle_matches(candidate) {
+                return ShortSearch::Found(candidate);
+            }
+            false_candidates += 1;
+            if false_candidates > SHORT_NEEDLE_FALSE_CANDIDATES {
+                return ShortSearch::TooManyFalseCandidates(candidate);
+            }
+            hits &= hits - 1;
+        }
+        at += SCREEN_BLOCK;
+    }
+    match (at..=last)
+        .find(|&i| bytes[i] == first && bytes[i + span] == last_byte && middle_matches(i))
+    {
+        Some(found) => ShortSearch::Found(found),
+        None => ShortSearch::Missing,
+    }
+}
+// `find_str` and `contains_str` call the screen out of line; `split_str`
+// inlines `find_short`, which is its only search.
+#[inline(never)]
+fn find_screened(haystack: &str, needle: &str) -> ShortSearch {
+    find_short(haystack, needle)
+}
+
+/// Returns the last position of `needle`, of 2 to [`SHORT_NEEDLE_MAX`] bytes,
+/// in `haystack`: [`find_short`] scanning from the end.
+///
+/// `TooManyFalseCandidates(position)` means no match starts at or after the
+/// position, which holds the needle's first byte.
+#[inline(never)]
+fn rfind_short(haystack: &str, needle: &str) -> ShortSearch {
+    let bytes = haystack.as_bytes();
+    let pattern = needle.as_bytes();
+    let span = pattern.len() - 1;
+    let (first, last_byte, middle) = (pattern[0], pattern[span], &pattern[1..span]);
+    let Some(last) = bytes.len().checked_sub(pattern.len()) else {
+        return ShortSearch::Missing;
+    };
+    let middle_matches = |at: usize| crate::compare::bytes_eq(&bytes[at + 1..at + span], middle);
+    let mut false_candidates = 0;
+
+    // Positions below `end` are still unscanned.
+    let mut end = last + 1;
+    while end >= SCREEN_BLOCK {
+        let start = end - SCREEN_BLOCK;
+        let heads: &[u8; SCREEN_BLOCK] = bytes[start..end].try_into().expect("a block of heads");
+        let tails: &[u8; SCREEN_BLOCK] = bytes[start + span..end + span]
+            .try_into()
+            .expect("a block of tails");
+        let mut hits = 0u32;
+        for i in 0..SCREEN_BLOCK {
+            hits |= u32::from((heads[i] == first) & (tails[i] == last_byte)) << i;
+        }
+        while hits != 0 {
+            let offset = 31 - hits.leading_zeros() as usize;
+            let candidate = start + offset;
+            if middle_matches(candidate) {
+                return ShortSearch::Found(candidate);
+            }
+            false_candidates += 1;
+            if false_candidates > SHORT_NEEDLE_FALSE_CANDIDATES {
+                return ShortSearch::TooManyFalseCandidates(candidate);
+            }
+            hits &= !(1 << offset);
+        }
+        end = start;
+    }
+    match (0..end)
+        .rev()
+        .find(|&i| bytes[i] == first && bytes[i + span] == last_byte && middle_matches(i))
+    {
+        Some(found) => ShortSearch::Found(found),
+        None => ShortSearch::Missing,
+    }
 }
 
 /// Answers a search whose needle is at least as long as the haystack: only
@@ -73,25 +200,29 @@ pub(crate) fn contains_str(haystack: &str, needle: &str) -> bool {
         1 => memchr::memchr(needle.as_bytes()[0], haystack.as_bytes()).is_some(),
         n if n >= haystack.len() => whole_match(haystack, needle),
         n if STD_HAS_SIMD_CONTAINS
-            && n <= STD_CONTAINS_MAX_NEEDLE
+            && n <= SHORT_NEEDLE_MAX
             && haystack.len() >= STD_CONTAINS_BLOCK + n - 1 =>
         {
             std_contains(haystack, needle)
+        }
+        n if n <= SHORT_NEEDLE_MAX
+            && (STD_HAS_SIMD_CONTAINS || haystack.len() < SCREENED_MAX_HAYSTACK) =>
+        {
+            match find_screened(haystack, needle) {
+                ShortSearch::Found(_) => true,
+                ShortSearch::Missing => false,
+                ShortSearch::TooManyFalseCandidates(from) => contains_from(haystack, needle, from),
+            }
         }
         _ => memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()).is_some(),
     }
 }
 
-// The std paths stay out of line: inlined, their searcher state enlarged the
-// stack frame of the short memchr/memmem paths by about 2 ns per call.
+// The std paths and the screened searches stay out of line: inlined, their
+// state enlarged the stack frame of the other arms by 2 to 6 ns per call.
 #[inline(never)]
 fn std_contains(haystack: &str, needle: &str) -> bool {
     haystack.contains(needle)
-}
-
-#[inline(never)]
-fn std_find(haystack: &str, needle: &str) -> Option<usize> {
-    haystack.find(needle)
 }
 
 #[inline(never)]
@@ -105,7 +236,13 @@ pub(crate) fn find_str(haystack: &str, needle: &str) -> Option<usize> {
         0 => Some(0),
         1 => memchr::memchr(needle.as_bytes()[0], haystack.as_bytes()),
         n if n >= haystack.len() => whole_match(haystack, needle).then_some(0),
-        n if std_find_is_faster(haystack.len(), n) => std_find(haystack, needle),
+        n if n <= SHORT_NEEDLE_MAX && haystack.len() < SCREENED_MAX_HAYSTACK => {
+            match find_screened(haystack, needle) {
+                ShortSearch::Found(at) => Some(at),
+                ShortSearch::Missing => None,
+                ShortSearch::TooManyFalseCandidates(from) => find_from(haystack, needle, from),
+            }
+        }
         _ => memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()),
     }
 }
@@ -116,9 +253,48 @@ pub(crate) fn rfind_str(haystack: &str, needle: &str) -> Option<usize> {
         0 => Some(haystack.len()),
         1 => memchr::memrchr(needle.as_bytes()[0], haystack.as_bytes()),
         n if n >= haystack.len() => whole_match(haystack, needle).then_some(0),
+        n if n <= SHORT_NEEDLE_MAX && haystack.len() < SCREENED_MAX_HAYSTACK => {
+            match rfind_short(haystack, needle) {
+                ShortSearch::Found(at) => Some(at),
+                ShortSearch::Missing => None,
+                ShortSearch::TooManyFalseCandidates(before) => {
+                    rfind_before(haystack, needle, before)
+                }
+            }
+        }
         n if std_rfind_is_faster(haystack.len(), n) => std_rfind(haystack, needle),
         _ => memchr::memmem::rfind(haystack.as_bytes(), needle.as_bytes()),
     }
+}
+
+// After too many false candidates the screened search hands the text it has
+// not ruled out to the general searchers. `from` and `before` hold the needle's
+// first byte, which begins a character, so they are character boundaries.
+
+#[cold]
+#[inline(never)]
+fn contains_from(haystack: &str, needle: &str, from: usize) -> bool {
+    haystack[from..].contains(needle)
+}
+
+#[cold]
+#[inline(never)]
+fn find_from(haystack: &str, needle: &str, from: usize) -> Option<usize> {
+    haystack[from..].find(needle).map(|offset| from + offset)
+}
+
+/// No match starts at or after `before`, so any match ends by
+/// `before + needle.len() - 1`. The text is cut at the first character
+/// boundary from there; the up to three extra bytes cannot hold a match start,
+/// as those positions were already ruled out.
+#[cold]
+#[inline(never)]
+fn rfind_before(haystack: &str, needle: &str, before: usize) -> Option<usize> {
+    let mut end = before + needle.len() - 1;
+    while !haystack.is_char_boundary(end) {
+        end += 1;
+    }
+    haystack[..end].rfind(needle)
 }
 
 /// Reusable substring finder for repeated searches with the same needle.

@@ -76,18 +76,19 @@
 - `contains`, `find`, and `rfind` choose their search backend by haystack
   and needle length, using thresholds measured on x86_64 and aarch64 with
   `benches/search_thresholds.rs`. A needle at least as long as the haystack
-  is answered by one comparison. `contains` uses the standard library's SIMD
-  search for 2- to 32-byte needles once the haystack holds a 16-byte block
-  plus the needle. `find` uses `str::find` when
-  `16 + 3 * needle <= haystack < 64`, and `rfind` uses `str::rfind` when
-  `haystack >= 24 + 2 * needle`; every other search uses a one-shot `memmem`.
-  On an i7-11700K the backend `find` picked was 16% slower than the faster
-  one on geometric mean and up to 4.3x slower in the worst case; it is now
-  within 0.5% and 1.3x (`rfind`: 11% and 3.7x before, under 1% and 1.5x
-  after). The `ubuntu-latest` and `ubuntu-24.04-arm` runners stay within 4%
-  and 1.8x. A 16-byte needle in a 32-byte haystack fell from 43 ns to 18 ns
-  for both. The `Search thresholds` workflow reruns the measurement on both
-  targets when `src/search.rs` changes.
+  is answered by one comparison. Needles of 2 to 32 bytes in haystacks under
+  256 bytes use the screened search that `split_str` uses, which needs no
+  setup: `find` and `rfind` always, and `contains` where the standard
+  library's SIMD search cannot run, that is, before the haystack holds a
+  16-byte block plus the needle. Longer haystacks use a one-shot `memmem` for
+  `find` and `str::rfind` for `rfind` (from `24 + 2 * needle` bytes). On an
+  i7-11700K, across the benchmark's inputs, `find` now takes 0.64 and
+  `rfind` 0.59 of the time of the faster of `str` and `memmem` on geometric
+  mean. A 16-byte needle in a 64-byte haystack takes 9 ns with `find` and
+  8 ns with `rfind`, against 46 ns and 54 ns with the best fixed backend.
+  Haystacks of 16 bytes with 2-byte needles are 1 to 2 ns slower, as they
+  never fill a screening block. The `Search thresholds` workflow reruns the
+  measurement on both targets when `src/search.rs` changes.
 
 ### Added
 

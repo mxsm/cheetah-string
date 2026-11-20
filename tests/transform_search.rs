@@ -244,6 +244,97 @@ fn ordering_matches_str_across_storage_kinds() {
     assert_eq!(keys, unique);
 }
 
+fn assert_search_matches_str(text: &str, needle: &str) {
+    let value = CheetahString::from(text);
+    assert_eq!(
+        value.find(needle),
+        text.find(needle),
+        "find {text:?} {needle:?}"
+    );
+    assert_eq!(
+        value.rfind(needle),
+        text.rfind(needle),
+        "rfind {text:?} {needle:?}"
+    );
+    assert_eq!(
+        value.contains(needle),
+        text.contains(needle),
+        "contains {text:?} {needle:?}"
+    );
+}
+
+#[test]
+fn search_matches_str_at_every_offset() {
+    // Needles at every offset land on both sides of each 16-position block
+    // boundary of the forward and reverse screens, in their scalar tails, and
+    // on both sides of the 256-byte screening limit.
+    let lengths: Vec<usize> = (0..=70)
+        .chain([100, 127, 128, 129, 200, 255, 256, 257, 300])
+        .collect();
+    for needle in [
+        "::",
+        "a_b",
+        "<-->",
+        "\u{e9}\u{e9}",
+        "exactly-thirty-two-bytes-long!!!",
+    ] {
+        for &len in &lengths {
+            let base: String = "xy".chars().cycle().take(len).collect();
+            assert_search_matches_str(&base, needle);
+            for at in 0..=len.saturating_sub(needle.len()) {
+                if at + needle.len() > len {
+                    continue;
+                }
+                let mut text = base.clone();
+                text.replace_range(at..at + needle.len(), needle);
+                assert_search_matches_str(&text, needle);
+                assert_search_matches_str(&format!("{text}{needle}"), needle);
+            }
+        }
+    }
+}
+
+#[test]
+fn search_hand_off_matches_str() {
+    // More than four positions pass the first/last-byte screen without
+    // matching, so `find`, `rfind`, and `contains` hand the rest of the text
+    // to a Two-Way searcher; real matches sit before and after that region.
+    let cases = [
+        ("aXb".repeat(30), "a_b"),
+        (format!("a_b{}", "aXb".repeat(30)), "a_b"),
+        (format!("{}a_b", "aXb".repeat(30)), "a_b"),
+        (
+            format!("{}a_b{}", "aXb".repeat(10), "aXb".repeat(10)),
+            "a_b",
+        ),
+        // Multi-byte needles, whose first byte is a UTF-8 lead byte; the
+        // reverse hand-off cuts the text at a character boundary.
+        ("\u{e9}X\u{e9}".repeat(20), "\u{e9}_\u{e9}"),
+        (
+            format!("\u{e9}_\u{e9}{}", "\u{e9}X\u{e9}".repeat(20)),
+            "\u{e9}_\u{e9}",
+        ),
+        (
+            format!("{}\u{e9}_\u{e9}", "\u{e9}X\u{e9}".repeat(20)),
+            "\u{e9}_\u{e9}",
+        ),
+        (
+            format!("\u{1f980}zy\u{1f980}{}", "\u{1f980}xy\u{1f980}".repeat(12)),
+            "\u{1f980}zy\u{1f980}",
+        ),
+        (
+            format!("{}\u{1f980}zy\u{1f980}", "\u{1f980}xy\u{1f980}".repeat(12)),
+            "\u{1f980}zy\u{1f980}",
+        ),
+        // The last match ends exactly where the reverse hand-off cuts the
+        // text: "aab" at 20 overlaps the fifth false candidate, "abb" at 21.
+        (format!("{}aabb{}", "x".repeat(20), "aXb".repeat(4)), "aab"),
+    ];
+    for (text, needle) in &cases {
+        assert_search_matches_str(text, needle);
+    }
+}
+
 #[test]
 fn split_str_hand_off_matches_str_split() {
     // Every piece is preceded by more than four positions that pass the
