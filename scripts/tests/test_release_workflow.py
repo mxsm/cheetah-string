@@ -49,6 +49,17 @@ class ReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("  workflow_dispatch:\n", self.workflow)
         self.assertNotRegex(self.workflow, r"(?m)^  push:")
 
+    def test_candidate_is_downloaded_outside_the_checkout(self):
+        # `cargo publish` refuses a working tree with uncommitted files.
+        self.assertIn("path: ${{ runner.temp }}/release-candidate", self.workflow)
+        self.assertIn(
+            "working-directory: ${{ runner.temp }}/release-candidate", self.workflow
+        )
+        self.assertNotRegex(self.workflow, r"(?m)^\s+path: release-candidate\s*$")
+        self.assertIn(
+            '"$RUNNER_TEMP/release-candidate/cheetah-string-$VERSION.crate', self.workflow
+        )
+
     def test_artifact_digest_is_verified_before_tag(self):
         verify = self.workflow.index("- name: Verify candidate digest")
         tag = self.workflow.index("- name: Create tag for manual release")
