@@ -95,8 +95,9 @@ impl CheetahString {
     ///
     /// Needles of 2 to 32 bytes on text that spans a 16-byte block plus the
     /// needle use the standard library's SIMD search, and on shorter text a
-    /// screened search with no setup. A needle at least as long as the text is
-    /// answered by one comparison; other cases use `memchr`/`memmem`.
+    /// screened search with no setup. Targets without that SIMD search screen
+    /// text under 256 bytes. A needle at least as long as the text is answered
+    /// by one comparison; other cases use `memchr`/`memmem`.
     ///
     /// # Examples
     ///
@@ -137,8 +138,9 @@ impl CheetahString {
     /// Returns the byte index of the first occurrence of the pattern, or `None` if not found.
     ///
     /// Needles of 2 to 32 bytes in text under 256 bytes use a screened search
-    /// with no setup; other text uses `memchr::memmem`, and a needle at least
-    /// as long as the text is answered by one comparison. Use
+    /// with no setup; on aarch64 the limit is lower for needles under 16 bytes.
+    /// Other text uses `memchr::memmem`, and a needle at least as long as the
+    /// text is answered by one comparison. Use
     /// [`CheetahString::find_char`] for a `char` pattern and
     /// [`crate::CheetahFinder`] to search for the same needle repeatedly.
     ///

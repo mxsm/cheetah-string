@@ -144,6 +144,11 @@ jobs:
       - name: Verify 32-bit compact layout
         run: cargo test --target i686-pc-windows-msvc --test layout_snapshot --all-features -- --nocapture
 
+      # std has no SIMD `contains` on 32-bit x86, so `contains` takes the
+      # screened search up to 256 bytes here, a path the 64-bit jobs never run.
+      - name: Test search without std's SIMD contains
+        run: cargo test --target i686-pc-windows-msvc --test transform_search --test search --all-features
+
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
