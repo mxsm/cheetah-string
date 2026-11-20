@@ -513,3 +513,27 @@ fn spare_capacity_freeze_keeps_contents() {
     assert_eq!(frozen, expected.as_str());
     assert_eq!(frozen.len(), expected.len());
 }
+
+#[test]
+fn from_fmt_matches_format_across_the_inline_boundary() {
+    use cheetah_string::cheetah_format;
+
+    let topic = "orders";
+    for queue_id in [0i64, 7, 42, 1_000_000, -5] {
+        let expected = format!("{topic}@{queue_id}");
+        assert_eq!(cheetah_format!("{topic}@{queue_id}"), expected.as_str());
+    }
+    for width in [0usize, 10, 22, 23, 24, 40] {
+        let expected = format!("{:>width$}|", "x");
+        assert_eq!(cheetah_format!("{:>width$}|", "x"), expected.as_str());
+    }
+    let pieces = ["\u{e9}t\u{e9}", "\u{1f980}", "plain"];
+    let expected = format!("{:?}-{}-{:.2}", pieces, pieces[1], 1.23456);
+    assert_eq!(
+        cheetah_format!("{:?}-{}-{:.2}", pieces, pieces[1], 1.23456),
+        expected.as_str()
+    );
+
+    let literal = cheetah_format!("a literal with no arguments");
+    assert_eq!(literal, "a literal with no arguments");
+}

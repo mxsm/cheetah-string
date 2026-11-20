@@ -94,6 +94,22 @@ let route_key = builder.finish();
 assert_eq!(route_key, "orders@group-a");
 ```
 
+Build composite keys with `concat` when every part is a string, or with
+`cheetah_format!` when numbers or other `Display` values are involved. Both
+keep results of up to 23 bytes inline without allocating, unlike
+`CheetahString::from(format!(..))`:
+
+```rust
+use cheetah_string::{cheetah_format, CheetahString};
+
+let key = CheetahString::concat(&["orders", "@", "group-a"]);
+assert_eq!(key, "orders@group-a");
+
+let queue_id = 4;
+let queue_key = cheetah_format!("{key}#{queue_id}");
+assert_eq!(queue_key, "orders@group-a#4");
+```
+
 When mutation continues, keep the builder's `String`:
 
 ```rust

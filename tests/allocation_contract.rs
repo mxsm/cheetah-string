@@ -359,3 +359,28 @@ fn bytes_backed_text_never_copies_validated_or_sliced_text() {
     );
     assert_eq!(adopted.as_bytes().as_ptr(), long.as_bytes().as_ptr());
 }
+
+#[test]
+fn formatting_short_values_does_not_allocate() {
+    use cheetah_string::cheetah_format;
+
+    let (topic, queue_id) = ("orders", 4i64);
+    let (count, bytes, key) =
+        measure(|| cheetah_format!("{}@{}", black_box(topic), black_box(queue_id)));
+    assert_eq!((count, bytes), (0, 0), "short formatted values stay inline");
+    assert_eq!(key, "orders@4");
+
+    let (count, bytes, literal) = measure(|| cheetah_format!("TopicTest"));
+    assert_eq!(
+        (count, bytes),
+        (0, 0),
+        "a literal format string is borrowed"
+    );
+    assert_eq!(literal, "TopicTest");
+
+    let group = "%RETRY%order-consumer-group";
+    let (count, _, long) =
+        measure(|| cheetah_format!("{}@{}", black_box(group), black_box(queue_id)));
+    assert!(count >= 1, "long formatted values need shared storage");
+    assert_eq!(long, "%RETRY%order-consumer-group@4");
+}
