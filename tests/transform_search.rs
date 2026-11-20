@@ -116,6 +116,98 @@ fn search_matches_str_when_the_needle_is_not_shorter_than_the_haystack() {
 }
 
 #[test]
+fn split_str_matches_str_split() {
+    let separators = [
+        "::",
+        ":::",
+        "aa",
+        "aaa",
+        "--",
+        "pay|",
+        "q@z!",
+        "@consumer",
+        "\u{df}\u{df}",
+        "\u{1f980}x",
+        "x\u{1f980}",
+        "TopicTest@consumer-group;tag=pay|",
+        "exactly-thirty-two-bytes-long!!!",
+        "a separator that is longer than thirty-two bytes",
+    ];
+    let mut texts = haystacks();
+    texts.extend(
+        [
+            "",
+            "::",
+            ":::",
+            "::::",
+            ":::::",
+            "a:b:c:d:e:f:g:h:i:j::k",
+            "a::b::c::d::e",
+            "::leading and trailing::",
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "x\u{1f980}\u{1f980}x\u{1f980}xx\u{1f980}",
+            "\u{df}\u{df}\u{df}-\u{df}\u{df}",
+        ]
+        .map(String::from),
+    );
+    texts.push("a:".repeat(100));
+    texts.push(format!("{}::tail", "a:".repeat(30)));
+    // Texts that pass the first/last-byte screen often but rarely match, so
+    // the search reaches its hand-off to `str::find`.
+    texts.push("a".repeat(200));
+    texts.push(format!("{}aab", "a".repeat(100)));
+    texts.push("aXb".repeat(66));
+    texts.push(format!("{}a_b{}a_b", "aXb".repeat(20), "aXb".repeat(5)));
+    texts.push(format!("{}\u{1f980}x", "\u{1f980}y".repeat(20)));
+    let separators: Vec<&str> = separators
+        .iter()
+        .copied()
+        .chain([
+            "aab",
+            "a_b",
+            "aaaaaaab",
+            "\u{1f980}x",
+            "\u{1f980}y\u{1f980}x",
+        ])
+        .collect();
+    for text in &texts {
+        let value = CheetahString::from(text.as_str());
+        for &separator in &separators {
+            let expected: Vec<&str> = text.split(separator).collect();
+            let actual: Vec<&str> = value.split_str(separator).collect();
+            assert_eq!(actual, expected, "split_str {text:?} {separator:?}");
+        }
+    }
+}
+
+#[test]
+fn split_str_matches_str_split_at_every_offset() {
+    // Separators at every offset of texts up to 70 bytes land before, on, and
+    // after each 16-position screening block boundary and in the scalar tail.
+    for separator in ["::", "a_b", "<-->", "exactly-thirty-two-bytes-long!!!"] {
+        for len in 0..70usize {
+            for at in 0..=len.saturating_sub(separator.len()) {
+                if at + separator.len() > len {
+                    continue;
+                }
+                let mut text: String = "xy".chars().cycle().take(len).collect();
+                text.replace_range(at..at + separator.len(), separator);
+                for text in [
+                    text.clone(),
+                    format!("{text}{separator}"),
+                    format!("{separator}{text}"),
+                ] {
+                    let value = CheetahString::from(text.as_str());
+                    let expected: Vec<&str> = text.split(separator).collect();
+                    let actual: Vec<&str> = value.split_str(separator).collect();
+                    assert_eq!(actual, expected, "split_str {text:?} {separator:?}");
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn transforms_match_str() {
     for hay in haystacks() {
         let value = CheetahString::from(hay.as_str());
