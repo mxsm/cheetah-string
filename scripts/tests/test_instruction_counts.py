@@ -58,7 +58,11 @@ class InstructionCountTests(unittest.TestCase):
         self.assertFalse(rows[0].regressed)
         report = COUNTS.render(rows, 0.02, 2.0, "")
         self.assertIn("| eq/inline_14B | - | 12.0 | - |", report)
-        self.assertIn("No regressions.", report)
+        # A comparison that never ran must not read as a pass.
+        self.assertNotIn("No regressions.", report)
+        self.assertIn("**No comparison:**", report)
+        compared = COUNTS.render(COUNTS.compare({"a": 10.0}, {"a": 10.0}, 0.02, 2.0), 0.02, 2.0, "")
+        self.assertIn("No regressions.", compared)
 
     def test_report_names_regressions(self) -> None:
         rows = COUNTS.compare({"find": 100.0}, {"find": 110.0}, 0.02, 2.0)
@@ -66,32 +70,73 @@ class InstructionCountTests(unittest.TestCase):
         self.assertIn("**+10.0% regression**", report)
         self.assertIn("**1 regression(s):** find", report)
 
-    def test_only_harness_compile_errors_allow_a_head_only_report(self) -> None:
-        def message(target: str, level: str, rendered: str) -> str:
+    def test_only_harness_source_errors_allow_a_head_only_report(self) -> None:
+        def message(target: str, level: str, rendered: str, file_name: str | None) -> str:
+            spans = [] if file_name is None else [{"file_name": file_name, "is_primary": True}]
             return json.dumps(
                 {
                     "reason": "compiler-message",
                     "target": {"kind": ["bin"], "name": target},
-                    "message": {"level": level, "message": rendered, "rendered": rendered},
+                    "message": {
+                        "level": level,
+                        "message": rendered,
+                        "rendered": rendered,
+                        "spans": spans,
+                    },
                 }
             )
 
-        harness_error = message("cheetah-icount", "error", "error[E0599]: no method `new_api`\n")
-        crate_error = message("cheetah_string", "error", "error[E0308]: mismatched types\n")
-        harness_warning = message("cheetah-icount", "warning", "warning: unused variable\n")
+        harness_error = message(
+            "cheetah-icount", "error", "error[E0599]: no method `new_api`\n", "src/main.rs"
+        )
+        windows_harness_error = message(
+            "cheetah-icount", "error", "error[E0425]: missing\n", "src\\main.rs"
+        )
+        crate_error = message(
+            "cheetah_string", "error", "error[E0308]: mismatched types\n", "src/lib.rs"
+        )
+        linker_error = message("cheetah-icount", "error", "error: linking with `cc` failed\n", None)
+        harness_warning = message(
+            "cheetah-icount", "warning", "warning: unused variable\n", "src/main.rs"
+        )
         output = "\n".join(
             [
                 "not json",
                 json.dumps({"reason": "build-finished", "success": False}),
                 crate_error,
+                linker_error,
                 harness_warning,
                 harness_error,
+                windows_harness_error,
             ]
         )
-        self.assertEqual(COUNTS.harness_errors(output), ["error[E0599]: no method `new_api`\n"])
-        # A failure in the crate or a dependency is not a harness incompatibility.
-        self.assertEqual(COUNTS.harness_errors("\n".join([crate_error, harness_warning])), [])
+        self.assertEqual(
+            COUNTS.harness_errors(output),
+            ["error[E0599]: no method `new_api`\n", "error[E0425]: missing\n"],
+        )
+        # Crate, dependency, and linker failures are build failures.
+        self.assertEqual(
+            COUNTS.harness_errors("\n".join([crate_error, linker_error, harness_warning])), []
+        )
         self.assertEqual(COUNTS.harness_errors(""), [])
+
+    def test_executable_path_comes_from_cargo(self) -> None:
+        artifact = {
+            "reason": "compiler-artifact",
+            "target": {"kind": ["bin"], "name": "cheetah-icount"},
+            "executable": "/work/head/target/x86_64-unknown-linux-gnu/release/cheetah-icount",
+        }
+        library = {
+            "reason": "compiler-artifact",
+            "target": {"kind": ["lib"], "name": "cheetah_string"},
+            "executable": None,
+        }
+        output = "\n".join([json.dumps(library), json.dumps(artifact)])
+        self.assertEqual(
+            COUNTS.harness_executable(output),
+            Path("/work/head/target/x86_64-unknown-linux-gnu/release/cheetah-icount"),
+        )
+        self.assertIsNone(COUNTS.harness_executable(json.dumps(library)))
 
     def test_harness_lists_every_scenario_once(self) -> None:
         source = (ROOT / COUNTS.HARNESS).read_text(encoding="utf-8")

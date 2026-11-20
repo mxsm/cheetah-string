@@ -129,31 +129,57 @@ def render(rows: list[Row], tolerance: float, min_delta: float, note: str) -> st
     lines.append("")
     if regressions:
         lines.append(f"**{len(regressions)} regression(s):** " + ", ".join(regressions))
+    elif rows and all(row.base is None for row in rows):
+        lines.append("**No comparison:** base was not measured, so regressions were not checked.")
     else:
         lines.append("No regressions.")
     return "\n".join(lines) + "\n"
 
 
-def harness_errors(cargo_json: str) -> list[str]:
-    """Returns the compiler errors reported in the harness itself.
-
-    `cargo_json` is the output of `cargo build --message-format=json`. Errors
-    in the crate or its dependencies are not harness errors.
-    """
-    errors = []
+def cargo_messages(cargo_json: str, reason: str) -> list[dict]:
+    """Returns the messages with `reason` from `--message-format=json` output."""
+    messages = []
     for line in cargo_json.splitlines():
         try:
             message = json.loads(line)
         except json.JSONDecodeError:
             continue
-        if not isinstance(message, dict) or message.get("reason") != "compiler-message":
-            continue
+        if isinstance(message, dict) and message.get("reason") == reason:
+            messages.append(message)
+    return messages
+
+
+def harness_errors(cargo_json: str) -> list[str]:
+    """Returns the compiler errors located in the harness source.
+
+    Only an error whose primary span lies in the harness's `src/main.rs`
+    counts: that is head's scenarios using API the crate lacks. Errors in the
+    crate or its dependencies, and linker failures, which carry no source
+    span, are build failures rather than incompatibilities.
+    """
+    errors = []
+    for message in cargo_messages(cargo_json, "compiler-message"):
         if message.get("target", {}).get("name") != HARNESS_TARGET:
             continue
         diagnostic = message.get("message", {})
-        if diagnostic.get("level") == "error":
+        if diagnostic.get("level") != "error":
+            continue
+        in_harness = any(
+            span.get("is_primary")
+            and span.get("file_name", "").replace("\\", "/").endswith("src/main.rs")
+            for span in diagnostic.get("spans", [])
+        )
+        if in_harness:
             errors.append(diagnostic.get("rendered") or diagnostic.get("message", ""))
     return errors
+
+
+def harness_executable(cargo_json: str) -> Path | None:
+    """Returns the harness executable path that Cargo reports."""
+    for message in cargo_messages(cargo_json, "compiler-artifact"):
+        if message.get("target", {}).get("name") == HARNESS_TARGET and message.get("executable"):
+            return Path(message["executable"])
+    return None
 
 
 def build(crate: Path, harness: Path, work: Path) -> Path:
@@ -172,6 +198,9 @@ def build(crate: Path, harness: Path, work: Path) -> Path:
         # Each side resolves with its own lockfile, so a dependency update in
         # the pull request shows up in the comparison.
         shutil.copyfile(lockfile, work / "Cargo.lock")
+    # A target directory per build keeps one side from overwriting the other
+    # even when CARGO_TARGET_DIR is set; the executable path comes from Cargo,
+    # which also accounts for CARGO_BUILD_TARGET.
     command = [
         "cargo",
         "build",
@@ -179,6 +208,8 @@ def build(crate: Path, harness: Path, work: Path) -> Path:
         "--message-format=json",
         "--manifest-path",
         str(work / "Cargo.toml"),
+        "--target-dir",
+        str(work / "target"),
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
@@ -189,8 +220,10 @@ def build(crate: Path, harness: Path, work: Path) -> Path:
         if errors:
             raise HarnessIncompatible(f"the harness does not compile against {crate}")
         raise subprocess.CalledProcessError(result.returncode, command, result.stdout, result.stderr)
-    suffix = ".exe" if sys.platform == "win32" else ""
-    return work / "target" / "release" / f"{HARNESS_TARGET}{suffix}"
+    executable = harness_executable(result.stdout)
+    if executable is None:
+        raise RuntimeError(f"cargo reported no {HARNESS_TARGET} executable")
+    return executable
 
 
 def count(binary: Path, scenario: str, iterations: int) -> int:
