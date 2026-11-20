@@ -31,6 +31,7 @@ import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
+from fractions import Fraction
 from pathlib import Path
 
 HARNESS = Path("scripts") / "icount" / "scenarios.rs"
@@ -62,15 +63,24 @@ class HarnessIncompatible(Exception):
 @dataclass(frozen=True)
 class Row:
     scenario: str
-    base: float | None
-    head: float
+    base: Fraction | None
+    head: Fraction
     regressed: bool
 
     @property
     def change(self) -> float | None:
         if self.base is None or self.base == 0:
             return None
-        return self.head / self.base - 1.0
+        return float(self.head / self.base - 1)
+
+
+def exact(value: Fraction | float | int) -> Fraction:
+    """Returns `value` as an exact fraction.
+
+    Going through `str` keeps decimal inputs such as `0.02` at their decimal
+    value rather than their nearest binary one.
+    """
+    return value if isinstance(value, Fraction) else Fraction(str(value))
 
 
 def parse_irefs(stderr: str) -> int:
@@ -81,27 +91,34 @@ def parse_irefs(stderr: str) -> int:
     return int(match.group(1).replace(",", ""))
 
 
-def per_iteration(low_count: int, high_count: int, low: int, high: int) -> float:
+def per_iteration(low_count: int, high_count: int, low: int, high: int) -> Fraction:
+    """Returns the exact instructions of one iteration.
+
+    Kept as a fraction so that comparisons at the regression bounds are exact.
+    """
     if high <= low:
         raise ValueError("--high must exceed --low")
     if high_count < low_count:
         raise ValueError(f"instruction count fell from {low_count} to {high_count}")
-    return (high_count - low_count) / (high - low)
+    return Fraction(high_count - low_count, high - low)
 
 
 def compare(
-    base: dict[str, float] | None,
-    head: dict[str, float],
+    base: dict[str, Fraction | float] | None,
+    head: dict[str, Fraction | float],
     tolerance: float,
     min_delta: float,
 ) -> list[Row]:
+    tolerance, min_delta = exact(tolerance), exact(min_delta)
     rows = []
-    for scenario, head_count in head.items():
-        base_count = None if base is None else base.get(scenario)
+    for scenario, head_value in head.items():
+        head_count = exact(head_value)
+        base_value = None if base is None else base.get(scenario)
+        base_count = None if base_value is None else exact(base_value)
         regressed = (
             base_count is not None
             and head_count - base_count > min_delta
-            and head_count > base_count * (1.0 + tolerance)
+            and head_count > base_count * (1 + tolerance)
         )
         rows.append(Row(scenario, base_count, head_count, regressed))
     return rows
@@ -120,11 +137,11 @@ def render(rows: list[Row], tolerance: float, min_delta: float, note: str) -> st
         lines += ["", note]
     lines += ["", "| Scenario | Base | Head | Change |", "| --- | ---: | ---: | ---: |"]
     for row in rows:
-        base = "-" if row.base is None else f"{row.base:.1f}"
+        base = "-" if row.base is None else f"{float(row.base):.1f}"
         change = "-" if row.change is None else f"{row.change:+.1%}"
         if row.regressed:
             change = f"**{change} regression**"
-        lines.append(f"| {row.scenario} | {base} | {row.head:.1f} | {change} |")
+        lines.append(f"| {row.scenario} | {base} | {float(row.head):.1f} | {change} |")
     regressions = [row.scenario for row in rows if row.regressed]
     lines.append("")
     if regressions:
@@ -147,6 +164,27 @@ def cargo_messages(cargo_json: str, reason: str) -> list[dict]:
         if isinstance(message, dict) and message.get("reason") == reason:
             messages.append(message)
     return messages
+
+
+def rendered_diagnostics(cargo_json: str) -> list[str]:
+    """Returns every rendered compiler diagnostic, for the job log."""
+    return [
+        message.get("message", {}).get("rendered") or ""
+        for message in cargo_messages(cargo_json, "compiler-message")
+    ]
+
+
+def run_checked(command: list[str]) -> subprocess.CompletedProcess[str]:
+    """Runs `command` and captures its output.
+
+    On failure the captured stderr, such as a Valgrind error or a scenario
+    panic, is written to the log before raising.
+    """
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr)
+        raise subprocess.CalledProcessError(result.returncode, command, result.stdout, result.stderr)
+    return result
 
 
 def harness_errors(cargo_json: str) -> list[str]:
@@ -213,10 +251,12 @@ def build(crate: Path, harness: Path, work: Path) -> Path:
     ]
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:
+        # Show every diagnostic, wherever it is; only the classification
+        # below depends on where the errors are.
         sys.stderr.write(result.stderr)
+        for diagnostic in rendered_diagnostics(result.stdout):
+            sys.stderr.write(diagnostic)
         errors = harness_errors(result.stdout)
-        for error in errors:
-            sys.stderr.write(error)
         if errors:
             raise HarnessIncompatible(f"the harness does not compile against {crate}")
         raise subprocess.CalledProcessError(result.returncode, command, result.stdout, result.stderr)
@@ -227,7 +267,7 @@ def build(crate: Path, harness: Path, work: Path) -> Path:
 
 
 def count(binary: Path, scenario: str, iterations: int) -> int:
-    result = subprocess.run(
+    result = run_checked(
         [
             "valgrind",
             "--tool=cachegrind",
@@ -236,15 +276,12 @@ def count(binary: Path, scenario: str, iterations: int) -> int:
             str(binary),
             scenario,
             str(iterations),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
+        ]
     )
     return parse_irefs(result.stderr)
 
 
-def measure(binary: Path, scenarios: list[str], low: int, high: int) -> dict[str, float]:
+def measure(binary: Path, scenarios: list[str], low: int, high: int) -> dict[str, Fraction]:
     return {
         scenario: per_iteration(
             count(binary, scenario, low), count(binary, scenario, high), low, high
@@ -278,9 +315,7 @@ def main(argv: list[str] | None = None) -> int:
     with tempfile.TemporaryDirectory() as temp:
         temp = Path(temp)
         head_binary = build(args.head, harness, temp / "head")
-        scenarios = subprocess.run(
-            [str(head_binary), "--list"], check=True, capture_output=True, text=True
-        ).stdout.split()
+        scenarios = run_checked([str(head_binary), "--list"]).stdout.split()
         note = f"Base `{revision(args.base)}`, head `{revision(args.head)}`."
         try:
             base_binary = build(args.base, harness, temp / "base")

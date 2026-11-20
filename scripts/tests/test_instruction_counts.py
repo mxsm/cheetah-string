@@ -1,8 +1,12 @@
+import contextlib
 import importlib.util
+import io
 import json
 import re
+import subprocess
 import sys
 import unittest
+from fractions import Fraction
 from pathlib import Path
 
 
@@ -35,6 +39,28 @@ class InstructionCountTests(unittest.TestCase):
         low = 500_000 + 40 * 1_000
         high = 500_000 + 40 * 11_000
         self.assertEqual(COUNTS.per_iteration(low, high, 1_000, 11_000), 40.0)
+
+    def test_regression_bounds_are_exact(self) -> None:
+        # 63.0002 and 65.0002 instructions per iteration: exactly 2 more, which
+        # float subtraction would round to 2.000000000000007.
+        base = COUNTS.per_iteration(1_000, 1_000 + 630_002, 1_000, 11_000)
+        at_bound = COUNTS.per_iteration(1_000, 1_000 + 650_002, 1_000, 11_000)
+        above = COUNTS.per_iteration(1_000, 1_000 + 650_003, 1_000, 11_000)
+        self.assertEqual(at_bound - base, Fraction(2))
+        rows = COUNTS.compare({"a": base, "b": base}, {"a": at_bound, "b": above}, 0.02, 2.0)
+        self.assertFalse(rows[0].regressed)
+        self.assertTrue(rows[1].regressed)
+        # Relative bound: 102 over 100 is exactly 2% and does not regress.
+        rows = COUNTS.compare({"c": 100.0, "d": 100.0}, {"c": 102.0, "d": 102.5}, 0.02, 1.0)
+        self.assertFalse(rows[0].regressed)
+        self.assertTrue(rows[1].regressed)
+
+    def test_failed_commands_show_their_stderr(self) -> None:
+        command = [sys.executable, "-c", "import sys; sys.stderr.write('scenario panicked'); sys.exit(3)"]
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured), self.assertRaises(subprocess.CalledProcessError):
+            COUNTS.run_checked(command)
+        self.assertIn("scenario panicked", captured.getvalue())
 
     def test_per_iteration_rejects_a_falling_count(self) -> None:
         with self.assertRaises(ValueError):
@@ -117,6 +143,11 @@ class InstructionCountTests(unittest.TestCase):
         # Crate, dependency, and linker failures are build failures.
         self.assertEqual(
             COUNTS.harness_errors("\n".join([crate_error, linker_error, harness_warning])), []
+        )
+        # The log still shows every diagnostic.
+        self.assertEqual(
+            COUNTS.rendered_diagnostics("\n".join([crate_error, linker_error])),
+            ["error[E0308]: mismatched types\n", "error: linking with `cc` failed\n"],
         )
         self.assertEqual(COUNTS.harness_errors(""), [])
 
