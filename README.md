@@ -257,6 +257,7 @@ cargo test --test allocation_contract --all-features -- --test-threads=1
 cargo bench --bench shared_backing -- __allocation_evidence_only__ --noplot \
   2>&1 | tee target/allocation-evidence.log
 python scripts/verify-allocation-evidence.py target/allocation-evidence.log
+cargo bench --bench search_thresholds
 cargo bench --bench comprehensive
 cargo bench --bench mq_properties
 cargo bench --bench mq_remoting_header
@@ -268,6 +269,24 @@ independently establish a release-grade performance pass. The versioned
 allocation and layout tests are the deterministic performance contracts.
 `scripts/verify-allocation-evidence.py` independently validates the schema-v3
 allocation record emitted by the shared-backing benchmark.
+
+Pull requests also compare exact instruction counts, which unlike timings
+repeat on shared runners. `scripts/instruction-counts.py` builds the fixed
+scenarios in `scripts/icount/scenarios.rs` against the base and head
+checkouts, runs each under Valgrind's cachegrind, and fails when a scenario
+executes more than 2% and more than 2 instructions per iteration above base.
+To accept a deliberate regression, label the pull request
+`accept-instruction-regression` and re-run the job; it then reports the
+counts without failing. With Valgrind installed, run it locally against a
+checkout of `main`:
+
+```bash
+python scripts/instruction-counts.py --base ../cheetah-string-main --head .
+```
+
+`benches/search_thresholds.rs` times the substring-search backends that
+`contains`, `find`, and `rfind` choose between; the `Search thresholds`
+workflow runs it on x86_64 and aarch64 when the search dispatch changes.
 
 ## Safety and portability
 
