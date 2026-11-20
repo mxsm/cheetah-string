@@ -88,3 +88,7 @@ harness = false
 [[bench]]
 name = "shared_backing"
 harness = false
+
+[[bench]]
+name = "search_thresholds"
+harness = false
