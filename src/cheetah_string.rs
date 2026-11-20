@@ -1,6 +1,7 @@
 mod assemble;
 mod construct;
 mod convert;
+mod format;
 mod pattern;
 mod query;
 mod repr;

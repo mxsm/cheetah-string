@@ -48,6 +48,13 @@
 
 ### Added
 
+- `cheetah_format!` and `CheetahString::from_fmt(format_args!(..))` format
+  straight into a `CheetahString`: output of up to 23 bytes is written to
+  inline storage without allocating, a literal with no arguments is borrowed
+  as a static value, and longer output spills to one generously sized
+  buffer. A 14-byte `topic@group` key took 104 ns through
+  `CheetahString::from(format!(..))` and 19 ns through `cheetah_format!`; a
+  50-byte key took 143 ns and 93 ns.
 - `CheetahText` (`bytes` feature): immutable UTF-8 text backed by
   `bytes::Bytes`. Validating a `Bytes` buffer, `slice`, `try_slice`, and
   `slice_ref` never copy the text, so decoders can return owned keys and
