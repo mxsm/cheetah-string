@@ -127,19 +127,12 @@ pub(crate) fn find_short(haystack: &str, needle: &str) -> ShortSearch {
         None => ShortSearch::Missing,
     }
 }
-// `find_str` and `contains_str` call the screen out of line; `split_str`
-// inlines `find_short`, which is its only search.
-#[inline(never)]
-fn find_screened(haystack: &str, needle: &str) -> ShortSearch {
-    find_short(haystack, needle)
-}
-
 /// Returns the last position of `needle`, of 2 to [`SHORT_NEEDLE_MAX`] bytes,
 /// in `haystack`: [`find_short`] scanning from the end.
 ///
 /// `TooManyFalseCandidates(position)` means no match starts at or after the
 /// position, which holds the needle's first byte.
-#[inline(never)]
+#[inline]
 fn rfind_short(haystack: &str, needle: &str) -> ShortSearch {
     let bytes = haystack.as_bytes();
     let pattern = needle.as_bytes();
@@ -208,18 +201,16 @@ pub(crate) fn contains_str(haystack: &str, needle: &str) -> bool {
         n if n <= SHORT_NEEDLE_MAX
             && (STD_HAS_SIMD_CONTAINS || haystack.len() < SCREENED_MAX_HAYSTACK) =>
         {
-            match find_screened(haystack, needle) {
-                ShortSearch::Found(_) => true,
-                ShortSearch::Missing => false,
-                ShortSearch::TooManyFalseCandidates(from) => contains_from(haystack, needle, from),
-            }
+            contains_screened(haystack, needle)
         }
         _ => memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()).is_some(),
     }
 }
 
-// The std paths and the screened searches stay out of line: inlined, their
-// state enlarged the stack frame of the other arms by 2 to 6 ns per call.
+// The std paths and the screened searches stay out of line, each as one call
+// that returns the final answer: inlined, or followed by more work in the
+// caller, their state enlarged the stack frame of every other arm, by 2 to
+// 6 ns per call.
 #[inline(never)]
 fn std_contains(haystack: &str, needle: &str) -> bool {
     haystack.contains(needle)
@@ -237,11 +228,7 @@ pub(crate) fn find_str(haystack: &str, needle: &str) -> Option<usize> {
         1 => memchr::memchr(needle.as_bytes()[0], haystack.as_bytes()),
         n if n >= haystack.len() => whole_match(haystack, needle).then_some(0),
         n if n <= SHORT_NEEDLE_MAX && haystack.len() < SCREENED_MAX_HAYSTACK => {
-            match find_screened(haystack, needle) {
-                ShortSearch::Found(at) => Some(at),
-                ShortSearch::Missing => None,
-                ShortSearch::TooManyFalseCandidates(from) => find_from(haystack, needle, from),
-            }
+            find_screened(haystack, needle)
         }
         _ => memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()),
     }
@@ -254,47 +241,55 @@ pub(crate) fn rfind_str(haystack: &str, needle: &str) -> Option<usize> {
         1 => memchr::memrchr(needle.as_bytes()[0], haystack.as_bytes()),
         n if n >= haystack.len() => whole_match(haystack, needle).then_some(0),
         n if n <= SHORT_NEEDLE_MAX && haystack.len() < SCREENED_MAX_HAYSTACK => {
-            match rfind_short(haystack, needle) {
-                ShortSearch::Found(at) => Some(at),
-                ShortSearch::Missing => None,
-                ShortSearch::TooManyFalseCandidates(before) => {
-                    rfind_before(haystack, needle, before)
-                }
-            }
+            rfind_screened(haystack, needle)
         }
         n if std_rfind_is_faster(haystack.len(), n) => std_rfind(haystack, needle),
         _ => memchr::memmem::rfind(haystack.as_bytes(), needle.as_bytes()),
     }
 }
 
-// After too many false candidates the screened search hands the text it has
-// not ruled out to the general searchers. `from` and `before` hold the needle's
-// first byte, which begins a character, so they are character boundaries.
+// After too many false candidates the screened searches hand the text they
+// have not ruled out to a Two-Way searcher. A false candidate holds the
+// needle's first byte, which begins a character, so it is a character
+// boundary.
 
-#[cold]
 #[inline(never)]
-fn contains_from(haystack: &str, needle: &str, from: usize) -> bool {
-    haystack[from..].contains(needle)
-}
-
-#[cold]
-#[inline(never)]
-fn find_from(haystack: &str, needle: &str, from: usize) -> Option<usize> {
-    haystack[from..].find(needle).map(|offset| from + offset)
-}
-
-/// No match starts at or after `before`, so any match ends by
-/// `before + needle.len() - 1`. The text is cut at the first character
-/// boundary from there; the up to three extra bytes cannot hold a match start,
-/// as those positions were already ruled out.
-#[cold]
-#[inline(never)]
-fn rfind_before(haystack: &str, needle: &str, before: usize) -> Option<usize> {
-    let mut end = before + needle.len() - 1;
-    while !haystack.is_char_boundary(end) {
-        end += 1;
+fn contains_screened(haystack: &str, needle: &str) -> bool {
+    match find_short(haystack, needle) {
+        ShortSearch::Found(_) => true,
+        ShortSearch::Missing => false,
+        ShortSearch::TooManyFalseCandidates(from) => haystack[from..].contains(needle),
     }
-    haystack[..end].rfind(needle)
+}
+
+#[inline(never)]
+fn find_screened(haystack: &str, needle: &str) -> Option<usize> {
+    match find_short(haystack, needle) {
+        ShortSearch::Found(at) => Some(at),
+        ShortSearch::Missing => None,
+        ShortSearch::TooManyFalseCandidates(from) => {
+            haystack[from..].find(needle).map(|offset| from + offset)
+        }
+    }
+}
+
+#[inline(never)]
+fn rfind_screened(haystack: &str, needle: &str) -> Option<usize> {
+    match rfind_short(haystack, needle) {
+        ShortSearch::Found(at) => Some(at),
+        ShortSearch::Missing => None,
+        ShortSearch::TooManyFalseCandidates(before) => {
+            // No match starts at or after `before`, so any match ends by
+            // `before + needle.len() - 1`. The text is cut at the first
+            // character boundary from there; the up to three extra bytes
+            // cannot hold a match start, as those positions were ruled out.
+            let mut end = before + needle.len() - 1;
+            while !haystack.is_char_boundary(end) {
+                end += 1;
+            }
+            haystack[..end].rfind(needle)
+        }
+    }
 }
 
 /// Reusable substring finder for repeated searches with the same needle.
