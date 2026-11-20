@@ -1,10 +1,6 @@
 use cheetah_string::CheetahString;
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 
-// `experimental-simd` is a retired no-op, so every build measures the
-// portable comparison.
-const ACTIVE_BACKEND: &str = "portable-default";
-
 const SHORT_NEEDLE_CASES: [(&str, &str, &str); 3] = [
     ("two_bytes", "xy", "zz"),
     ("four_bytes", "wxyz", "zzzz"),
@@ -29,7 +25,7 @@ fn deterministic_ascii(len: usize, seed: u64) -> String {
 }
 
 fn bench_equality(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/equality"));
+    let mut group = c.benchmark_group("equality");
 
     for size in FULL_SIZE_MATRIX {
         let source = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
@@ -62,7 +58,7 @@ fn bench_equality(c: &mut Criterion) {
 }
 
 fn bench_starts_with(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/starts_with"));
+    let mut group = c.benchmark_group("starts_with");
 
     for size in FULL_SIZE_MATRIX {
         let source = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
@@ -87,7 +83,7 @@ fn bench_starts_with(c: &mut Criterion) {
 }
 
 fn bench_ends_with(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/ends_with"));
+    let mut group = c.benchmark_group("ends_with");
 
     for size in FULL_SIZE_MATRIX {
         let source = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
@@ -112,7 +108,7 @@ fn bench_ends_with(c: &mut Criterion) {
 }
 
 fn bench_contains(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/contains"));
+    let mut group = c.benchmark_group("contains");
 
     for size in FULL_SIZE_MATRIX {
         let base = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
@@ -144,7 +140,7 @@ fn bench_contains(c: &mut Criterion) {
 }
 
 fn bench_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/find"));
+    let mut group = c.benchmark_group("find");
 
     for size in FULL_SIZE_MATRIX {
         let base = deterministic_ascii(size, FIXED_DATA_SEED ^ size as u64);
@@ -176,7 +172,7 @@ fn bench_find(c: &mut Criterion) {
 }
 
 fn bench_realistic_workload(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/realistic"));
+    let mut group = c.benchmark_group("realistic");
 
     // Simulate URL parsing
     let url = CheetahString::from("https://api.example.com/v1/users/12345?filter=active&sort=name");
@@ -221,7 +217,7 @@ fn bench_realistic_workload(c: &mut Criterion) {
 }
 
 fn bench_contains_short_needles(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/contains_short_needle"));
+    let mut group = c.benchmark_group("contains_short_needle");
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_SIZES {
@@ -256,7 +252,7 @@ fn bench_contains_short_needles(c: &mut Criterion) {
 }
 
 fn bench_find_short_needles(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/find_short_needle"));
+    let mut group = c.benchmark_group("find_short_needle");
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_SIZES {
@@ -291,7 +287,7 @@ fn bench_find_short_needles(c: &mut Criterion) {
 }
 
 fn bench_compare_short_needle_contains(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/compare_short_needle_contains"));
+    let mut group = c.benchmark_group("compare_short_needle_contains");
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_COMPARE_SIZES {
@@ -338,7 +334,7 @@ fn bench_compare_short_needle_contains(c: &mut Criterion) {
 }
 
 fn bench_compare_short_needle_find(c: &mut Criterion) {
-    let mut group = c.benchmark_group(format!("{ACTIVE_BACKEND}/compare_short_needle_find"));
+    let mut group = c.benchmark_group("compare_short_needle_find");
 
     for (label, needle_match, needle_no_match) in SHORT_NEEDLE_CASES {
         for size in SHORT_NEEDLE_COMPARE_SIZES {

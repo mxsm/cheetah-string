@@ -77,7 +77,7 @@ $cpu = if ($IsWindows -or $env:OS -eq "Windows_NT") {
     [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString()
 }
 $os = [System.Runtime.InteropServices.RuntimeInformation]::OSDescription
-$effectiveFeatures = "$Features;simd-bench=isolated"
+$effectiveFeatures = $Features
 
 $benchmarkIds = @(
     "layout",
@@ -87,7 +87,7 @@ $benchmarkIds = @(
     "mq_properties",
     "mq_remoting_header",
     "pattern",
-    "simd",
+    "comparison",
     "shared_backing"
 )
 
@@ -105,7 +105,6 @@ $benchmarkIds = @(
     cpu = $cpu
     os = $os
     features = $effectiveFeatures
-    simd_feature_alias = "experimental-simd"
     harness_identity = $harnessIdentity
     sample_count = $SampleCount
     smoke = [bool]$Smoke
@@ -189,8 +188,8 @@ Invoke-CargoCapture "mq-remoting-header.txt" (@(
 Invoke-CargoCapture "pattern.txt" (@(
     "bench", "--bench", "pattern", "--"
 ) + $criterionArguments)
-Invoke-CargoCapture "simd.txt" (@(
-    "bench", "--bench", "simd", "--features", "experimental-simd", "--"
+Invoke-CargoCapture "comparison.txt" (@(
+    "bench", "--bench", "comparison", "--"
 ) + $criterionArguments)
 Invoke-CargoCapture "shared-backing.txt" (@(
     "bench", "--bench", "shared_backing", "--"

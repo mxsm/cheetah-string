@@ -1,19 +1,19 @@
 // Example demonstrating equality, prefix, and suffix checks in CheetahString
-// Run with: cargo run --example simd_demo
+// Run with: cargo run --example comparison_demo
 
 use cheetah_string::CheetahString;
 
 fn main() {
-    println!("CheetahString SIMD Demo");
-    println!("=======================\n");
+    println!("CheetahString Comparison Demo");
+    println!("=============================\n");
 
     // Example 1: Equality comparison
     println!("1. Equality Comparison:");
-    let s1 = CheetahString::from("Hello, World! This is a SIMD-accelerated string comparison.");
-    let s2 = CheetahString::from("Hello, World! This is a SIMD-accelerated string comparison.");
+    let s1 = CheetahString::from("Hello, World! This is a string comparison longer than 16 bytes.");
+    let s2 = CheetahString::from("Hello, World! This is a string comparison longer than 16 bytes.");
     let s3 = CheetahString::from("Hello, World! This is a different string.");
 
-    println!("  s1 == s2: {}", s1 == s2); // true (uses SIMD for long strings)
+    println!("  s1 == s2: {}", s1 == s2); // true
     println!("  s1 == s3: {}\n", s1 == s3); // false
 
     // Example 2: starts_with

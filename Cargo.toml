@@ -82,7 +82,7 @@ name = "pattern"
 harness = false
 
 [[bench]]
-name = "simd"
+name = "comparison"
 harness = false
 
 [[bench]]
