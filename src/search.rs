@@ -198,12 +198,10 @@ pub(crate) fn contains_str(haystack: &str, needle: &str) -> bool {
         {
             std_contains(haystack, needle)
         }
-        n if n <= SHORT_NEEDLE_MAX
-            && (STD_HAS_SIMD_CONTAINS || haystack.len() < SCREENED_MAX_HAYSTACK) =>
-        {
-            contains_screened(haystack, needle)
-        }
-        _ => memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()).is_some(),
+        // Everything else is one call, so the arms above compile as they did
+        // before the screen: inlined into a caller's loop, a second
+        // out-of-line arm cost the std arm about 7 instructions per call.
+        _ => contains_without_std_simd(haystack, needle),
     }
 }
 
@@ -253,13 +251,20 @@ pub(crate) fn rfind_str(haystack: &str, needle: &str) -> Option<usize> {
 // needle's first byte, which begins a character, so it is a character
 // boundary.
 
+/// `contains` for the inputs std's SIMD fast path does not take: the screen
+/// for short needles in short haystacks, `memmem` for the rest.
 #[inline(never)]
-fn contains_screened(haystack: &str, needle: &str) -> bool {
-    match find_short(haystack, needle) {
-        ShortSearch::Found(_) => true,
-        ShortSearch::Missing => false,
-        ShortSearch::TooManyFalseCandidates(from) => haystack[from..].contains(needle),
+fn contains_without_std_simd(haystack: &str, needle: &str) -> bool {
+    if needle.len() <= SHORT_NEEDLE_MAX
+        && (STD_HAS_SIMD_CONTAINS || haystack.len() < SCREENED_MAX_HAYSTACK)
+    {
+        return match find_short(haystack, needle) {
+            ShortSearch::Found(_) => true,
+            ShortSearch::Missing => false,
+            ShortSearch::TooManyFalseCandidates(from) => haystack[from..].contains(needle),
+        };
     }
+    memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()).is_some()
 }
 
 #[inline(never)]
