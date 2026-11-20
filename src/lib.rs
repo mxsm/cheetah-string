@@ -68,7 +68,7 @@
 //! let topic = CheetahString::from_static_str("orders");
 //! assert!(topic.starts_with("ord"));
 //!
-//! let mut builder = CheetahBuilder::with_capacity(32);
+//! let mut builder = CheetahBuilder::new();
 //! builder.push_str(topic.as_str());
 //! builder.push('@');
 //! builder.push_str("group-a");

@@ -85,7 +85,9 @@ assert_eq!(shared, cloned);
 assert_eq!(shared.as_bytes().as_ptr(), cloned.as_bytes().as_ptr());
 assert_eq!(adopted, "ownership-preserving-shared-value");
 
-let mut builder = CheetahBuilder::with_capacity(64);
+// Short contents stay on the stack, so building and finishing this key
+// allocates nothing.
+let mut builder = CheetahBuilder::new();
 builder.push_str("orders");
 builder.push('@');
 builder.push_str("group-a");

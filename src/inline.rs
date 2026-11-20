@@ -168,6 +168,25 @@ impl InlineStr {
         &self.data[..self.len.get().min(INLINE_CAPACITY)]
     }
 
+    /// Appends `value` when the result still fits inline.
+    ///
+    /// Returns `false` and leaves `self` unchanged when it does not. Only
+    /// whole `&str` pieces are appended and bytes past the new length stay
+    /// zero, so the UTF-8 and padding invariants hold.
+    #[inline]
+    pub(crate) fn push_str(&mut self, value: &str) -> bool {
+        let len = self.len();
+        let end = len.saturating_add(value.len());
+        match InlineLength::new(end) {
+            Some(new_len) => {
+                self.data[len..end].copy_from_slice(value.as_bytes());
+                self.len = new_len;
+                true
+            }
+            None => false,
+        }
+    }
+
     /// Converts ASCII letters to upper case in place.
     ///
     /// ASCII case mapping never touches non-ASCII bytes or the zero padding,
