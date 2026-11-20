@@ -57,12 +57,13 @@
   plus the needle. `find` uses `str::find` when
   `16 + 3 * needle <= haystack < 64`, and `rfind` uses `str::rfind` when
   `haystack >= 24 + 2 * needle`; every other search uses a one-shot `memmem`.
-  Measured against the faster backend for each input on an i7-11700K, the
-  geometric-mean overhead of `find` fell from 22% to 7% and the worst case
-  from 4.0x to 1.8x (`rfind`: 20% to 9%, 3.9x to 1.7x). A 16-byte needle in
-  a 32-byte haystack fell from 43 ns to 18 ns for both. The
-  `Search thresholds` workflow reruns the measurement on both targets when
-  `src/search.rs` changes.
+  On an i7-11700K the backend `find` picked was 16% slower than the faster
+  one on geometric mean and up to 4.3x slower in the worst case; it is now
+  within 0.5% and 1.3x (`rfind`: 11% and 3.7x before, under 1% and 1.5x
+  after). The `ubuntu-latest` and `ubuntu-24.04-arm` runners stay within 4%
+  and 1.8x. A 16-byte needle in a 32-byte haystack fell from 43 ns to 18 ns
+  for both. The `Search thresholds` workflow reruns the measurement on both
+  targets when `src/search.rs` changes.
 
 ### Added
 

@@ -31,14 +31,17 @@ const STD_CONTAINS_BLOCK: usize = 16;
 // std therefore wins only when the haystack is long relative to the needle:
 //
 // - `find` uses std when `16 + 3 * needle <= haystack < 64`. From 64 bytes
-//   memmem's SIMD prefilter won at every needle length.
+//   memmem's SIMD prefilter won at every needle length on the i7 and on
+//   aarch64. The `ubuntu-latest` runner favoured std up to 128 bytes for 4 to
+//   16-byte needles, but moving the cutoff there cost more elsewhere.
 // - `rfind` uses std when `haystack >= 24 + 2 * needle`. `memmem::rfind` has
 //   no prefilter, so std stays ahead on long haystacks.
 //
-// On both targets these rules kept every measured case within 1.6x of the
-// faster strategy and the geometric mean within 3% of it. The fixed cutoffs
-// they replace, std for `find` from 24 to 127 bytes and for `rfind` from 24
-// bytes, were up to 3.9x slower with 8 to 32-byte needles.
+// On every machine these rules stayed within 4% of the faster strategy on
+// geometric mean and within 1.8x in the worst case. The fixed cutoffs they
+// replace, std for `find` from 24 to 127 bytes and for `rfind` from 24 bytes,
+// were 9-17% slower on geometric mean and up to 4.3x slower with 8 to
+// 32-byte needles.
 const STD_FIND_BASE: usize = 16;
 const STD_FIND_PER_NEEDLE_BYTE: usize = 3;
 const MEMMEM_FIND_MIN_HAYSTACK: usize = 64;
