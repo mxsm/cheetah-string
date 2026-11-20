@@ -78,6 +78,17 @@ fn eq_str(iterations: u64) {
     repeat(iterations, || black_box(&a) == black_box(LONG));
 }
 
+fn cmp_inline(iterations: u64) {
+    let (a, b) = (CheetahString::from(SHORT), CheetahString::from("orders@group-b"));
+    repeat(iterations, || black_box(&a).cmp(black_box(&b)));
+}
+
+fn cmp_shared(iterations: u64) {
+    let a = CheetahString::from(LONG);
+    let b = CheetahString::from("%RETRY%order-consumer-group@broker-a-instance-0002");
+    repeat(iterations, || black_box(&a).cmp(black_box(&b)));
+}
+
 fn hash_inline(iterations: u64) {
     let value = CheetahString::from(SHORT);
     let state = FixedState::default();
@@ -231,6 +242,8 @@ const SCENARIOS: &[(&str, fn(u64))] = &[
     ("eq/inline_14B", eq_inline),
     ("eq/shared_50B_distinct", eq_shared_distinct),
     ("eq/str_50B", eq_str),
+    ("cmp/inline_14B", cmp_inline),
+    ("cmp/shared_50B", cmp_shared),
     ("hash/inline_14B", hash_inline),
     ("hash_map/get_64_keys", map_get_64),
     ("as_bytes/scan_64_values", as_bytes_scan_64),

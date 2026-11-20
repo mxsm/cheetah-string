@@ -51,6 +51,12 @@
   separator from 65 ns to 22 ns, a 32-byte separator from 98 ns to 20 ns, and
   `"aab"` in 200 `a`s from 186 ns to 23 ns. Text built to pass the screen
   without matching, such as `"a_b"` in `aXb` repeated, is about 5% slower.
+- Ordering two inline values compares their zero-padded buffers as three
+  big-endian words, then their lengths, instead of calling `memcmp`; the
+  order is exactly `str`'s. On an i7-11700K comparing two 14-byte keys fell
+  from 7.4 ns to 1.9 ns, sorting 1,024 inline keys from 66.1 µs to
+  25.3 µs, and 1,024 `BTreeMap` lookups from 118 µs to 31 µs. Sorting long,
+  shared keys was about 5% slower in the same benchmark.
 - Inline decoding clamps the length instead of carrying a slice bounds check
   and panic path into every inlined `as_str()` call site.
 - `SplitStr::next` is now inlinable, and `SplitStr` implements `Clone`,

@@ -181,6 +181,59 @@ fn split_str_matches_str_split() {
 }
 
 #[test]
+fn ordering_matches_str_across_storage_kinds() {
+    let mut texts = haystacks();
+    texts.extend(
+        [
+            "",
+            "\u{0}",
+            "a\u{0}",
+            "a\u{0}\u{0}",
+            "orders",
+            "orders@group-a",
+            "orders@group-b",
+            "orders@group-a-with-a-long-shared-suffix",
+            "exactly-twenty-three-b!",
+            "exactly-twenty-three-b!!",
+        ]
+        .map(String::from),
+    );
+    // Inline and shared values, plus static ones that are short enough to be
+    // inline in the other forms.
+    let mut values: Vec<CheetahString> = texts
+        .iter()
+        .map(|text| CheetahString::from(text.as_str()))
+        .collect();
+    values.extend(["", "a\u{0}", "orders", "orders@group-a"].map(CheetahString::from_static_str));
+    for left in &values {
+        for right in &values {
+            assert_eq!(
+                left.cmp(right),
+                left.as_str().cmp(right.as_str()),
+                "{left:?} vs {right:?}"
+            );
+            assert_eq!(left.partial_cmp(right), Some(left.cmp(right)));
+        }
+    }
+
+    let mut sorted = values.clone();
+    sorted.sort();
+    let mut expected: Vec<&str> = values.iter().map(CheetahString::as_str).collect();
+    expected.sort();
+    assert_eq!(
+        sorted.iter().map(CheetahString::as_str).collect::<Vec<_>>(),
+        expected
+    );
+
+    let map: std::collections::BTreeMap<CheetahString, usize> =
+        values.iter().cloned().zip(0..).collect();
+    let keys: Vec<&str> = map.keys().map(CheetahString::as_str).collect();
+    let mut unique = expected.clone();
+    unique.dedup();
+    assert_eq!(keys, unique);
+}
+
+#[test]
 fn split_str_matches_str_split_at_every_offset() {
     // Separators at every offset of texts up to 70 bytes land before, on, and
     // after each 16-position screening block boundary and in the scalar tail.
