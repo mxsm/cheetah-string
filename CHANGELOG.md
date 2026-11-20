@@ -81,8 +81,10 @@
   setup: `find` and `rfind` always, and `contains` where the standard
   library's SIMD search cannot run, that is, before the haystack holds a
   16-byte block plus the needle. Longer haystacks use a one-shot `memmem` for
-  `find` and `str::rfind` for `rfind` (from `24 + 2 * needle` bytes). On an
-  i7-11700K, across the benchmark's inputs, `find` now takes 0.64 and
+  `find` and `str::rfind` for `rfind` (from `24 + 2 * needle` bytes). On
+  aarch64, `find` screens only up to 64 bytes for 2- and 3-byte needles and
+  up to 160 bytes for 4- to 15-byte needles, where NEON `memmem` was faster.
+  On an i7-11700K, across the benchmark's inputs, `find` now takes 0.64 and
   `rfind` 0.59 of the time of the faster of `str` and `memmem` on geometric
   mean. A 16-byte needle in a 64-byte haystack takes 9 ns with `find` and
   8 ns with `rfind`, against 46 ns and 54 ns with the best fixed backend.

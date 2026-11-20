@@ -39,13 +39,17 @@
 //!
 //! Substring search picks its backend by haystack and needle length, with
 //! thresholds measured on x86_64 and aarch64. Needles of 2 to 32 bytes in
-//! text under 256 bytes use a screened search that needs no setup: it checks
-//! 16 positions at a time against the needle's first and last bytes and
-//! compares the middle only where both match. `contains` keeps the standard
-//! library's SIMD search once the text spans a 16-byte block plus the needle.
-//! Longer text uses `memchr::memmem` for `find()` and `str::rfind` for
-//! `rfind()`. A needle at least as long as the text is answered by one
-//! comparison. Use [`CheetahFinder`] to search for one needle repeatedly.
+//! short text use a screened search that needs no setup: it checks 16
+//! positions at a time against the needle's first and last bytes and compares
+//! the middle only where both match. `find()` and `rfind()` screen text under
+//! 256 bytes; on aarch64 `find()` stops sooner for needles under 16 bytes.
+//! `contains()` keeps the standard library's SIMD search once the text spans
+//! a 16-byte block plus the needle and screens only shorter text, or text
+//! under 256 bytes on targets without that search. Every other search uses
+//! `memchr::memmem`, except that `rfind()` uses `str::rfind` once the text is
+//! at least `24 + 2 * needle` bytes long. A needle at least as long as the
+//! text is answered by one comparison. Use [`CheetahFinder`] to search for one
+//! needle repeatedly.
 //!
 //! # Retired experimental features
 //!
