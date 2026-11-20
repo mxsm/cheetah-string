@@ -1,3 +1,4 @@
+use crate::search::{find_short, ShortSearch, SHORT_NEEDLE_MAX};
 use alloc::string::String;
 use core::str;
 
@@ -135,27 +136,12 @@ enum SplitStrInner<'a, 'p> {
     Short(ShortSplit<'a, 'p>),
 }
 
-/// Separators of 2 up to this many bytes are found by [`find_short`], which
-/// needs no setup, instead of the Two-Way searcher that `str::split` builds on
-/// every call. The middle of a candidate is checked with `compare::bytes_eq`,
-/// which handles up to 64 bytes without a `memcmp` call.
-const SHORT_SEPARATOR_MAX: usize = 32;
-
-/// Candidate positions screened together by [`find_short`].
-const SCREEN_BLOCK: usize = 16;
-
-/// Positions that pass the screen but not the full comparison, tolerated in
-/// one search before the split hands the rest of the text to `str::split`.
-/// Ordinary text rarely has any; text built to defeat the screen pays for at
-/// most this many, once per split.
-const SHORT_SEPARATOR_FALSE_CANDIDATES: usize = 4;
-
 impl<'a, 'p> SplitStr<'a, 'p> {
     #[inline]
     pub(super) fn new(value: &'a str, pattern: &'p str) -> Self {
         let inner = match single_char_pattern(pattern) {
             Some(ch) => SplitStrInner::Char(value.split(ch)),
-            None if (2..=SHORT_SEPARATOR_MAX).contains(&pattern.len()) => {
+            None if (2..=SHORT_NEEDLE_MAX).contains(&pattern.len()) => {
                 SplitStrInner::Short(ShortSplit {
                     rest: Some(value),
                     separator: pattern,
@@ -168,7 +154,7 @@ impl<'a, 'p> SplitStr<'a, 'p> {
     }
 }
 
-/// Forward split by a separator of 2 to [`SHORT_SEPARATOR_MAX`] bytes that
+/// Forward split by a separator of 2 to [`SHORT_NEEDLE_MAX`] bytes that
 /// yields the same pieces as `str::split`: matches are leftmost and do not
 /// overlap. A match of valid UTF-8 inside valid UTF-8 starts and ends on
 /// character boundaries, so the slices never split a character.
@@ -177,74 +163,6 @@ struct ShortSplit<'a, 'p> {
     /// The text after the last separator, or `None` once it was yielded.
     rest: Option<&'a str>,
     separator: &'p str,
-}
-
-/// The outcome of [`find_short`].
-enum ShortSearch {
-    /// The first match starts here.
-    Found(usize),
-    /// The text holds no match.
-    Missing,
-    /// More than [`SHORT_SEPARATOR_FALSE_CANDIDATES`] positions passed the
-    /// screen without matching, the last at this position; a Two-Way searcher
-    /// suits this text better. Nothing before the position matches, and the
-    /// position holds the needle's first byte, so it is a character boundary.
-    TooManyFalseCandidates(usize),
-}
-
-/// Returns the first position of `needle`, of 2 to [`SHORT_SEPARATOR_MAX`]
-/// bytes, in `haystack`.
-///
-/// Positions are screened [`SCREEN_BLOCK`] at a time on the needle's first and
-/// last bytes, in a fixed-size loop the compiler turns into vector compares,
-/// and only positions that pass compare the middle. Text that merely repeats
-/// the separator's first byte, or its leading bytes, produces no candidates.
-#[inline]
-fn find_short(haystack: &str, needle: &str) -> ShortSearch {
-    let bytes = haystack.as_bytes();
-    let pattern = needle.as_bytes();
-    let span = pattern.len() - 1;
-    let (first, last_byte, middle) = (pattern[0], pattern[span], &pattern[1..span]);
-    // The last position where a whole separator still fits.
-    let Some(last) = bytes.len().checked_sub(pattern.len()) else {
-        return ShortSearch::Missing;
-    };
-    let middle_matches = |at: usize| crate::compare::bytes_eq(&bytes[at + 1..at + span], middle);
-    let mut false_candidates = 0;
-
-    let mut at = 0;
-    // Every position of a block, plus `span`, stays inside the text while
-    // `at + SCREEN_BLOCK <= last + 1`.
-    while at + SCREEN_BLOCK <= last + 1 {
-        let heads: &[u8; SCREEN_BLOCK] = bytes[at..at + SCREEN_BLOCK]
-            .try_into()
-            .expect("a block of heads");
-        let tails: &[u8; SCREEN_BLOCK] = bytes[at + span..at + span + SCREEN_BLOCK]
-            .try_into()
-            .expect("a block of tails");
-        let mut hits = 0u32;
-        for i in 0..SCREEN_BLOCK {
-            hits |= u32::from((heads[i] == first) & (tails[i] == last_byte)) << i;
-        }
-        while hits != 0 {
-            let candidate = at + hits.trailing_zeros() as usize;
-            if middle_matches(candidate) {
-                return ShortSearch::Found(candidate);
-            }
-            false_candidates += 1;
-            if false_candidates > SHORT_SEPARATOR_FALSE_CANDIDATES {
-                return ShortSearch::TooManyFalseCandidates(candidate);
-            }
-            hits &= hits - 1;
-        }
-        at += SCREEN_BLOCK;
-    }
-    match (at..=last)
-        .find(|&i| bytes[i] == first && bytes[i + span] == last_byte && middle_matches(i))
-    {
-        Some(found) => ShortSearch::Found(found),
-        None => ShortSearch::Missing,
-    }
 }
 
 #[inline]
